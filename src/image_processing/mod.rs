@@ -1,0 +1,1 @@
+// module delcaration and common functionalities
