@@ -1,8 +1,16 @@
 use postgres::{Client, Error, NoTls};
+use std::env;
+use dotenv::dotenv;
 
 fn main() -> Result<(), Error> {
+
+    dotenv().ok(); // Load variables from .env file
+    // Get the database url from the environment
+    let database_url = env::var("DATABASE_URL")
+        .expect( "DATABASE_URL must be set");
+
     let mut client = Client::connect(
-        "postgresql://postgres:postgres@localhost/photoshop",
+        &database_url,
         NoTls,
     )?;
 
