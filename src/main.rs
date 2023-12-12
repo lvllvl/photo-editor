@@ -24,6 +24,7 @@ fn main() -> Result<(), Error> {
         )
     ",
     )?;
+    println!("Users table created successfully.");
 
     // Create Session Table
     client.batch_execute(
@@ -36,6 +37,7 @@ fn main() -> Result<(), Error> {
         )
     ",
     )?;
+    println!("sessions table created successfully.");
 
     // Create Image Table
     client.batch_execute(
@@ -44,10 +46,11 @@ fn main() -> Result<(), Error> {
             id              SERIAL PRIMARY KEY,
             session_id      INTEGER REFERENCES sessions,
             file_path       VARCHAR NOT NULL
-            // Additional fields as necessary
+            -- Additional fields as necessary
         )
     ",
     )?;
+    println!("images table created successfully.");
 
     // Create Layers Table
     client.batch_execute(
@@ -56,10 +59,11 @@ fn main() -> Result<(), Error> {
             id              SERIAL PRIMARY KEY,
             image_id        INTEGER REFERENCES images,
             layer_data      BYTEA
-            // Additional fields as necessary
+            -- Additional fields as necessary
         )
     ",
     )?;
+    println!("layers table created successfully.");
 
     Ok(())
 }
