@@ -14,6 +14,13 @@ fn main() -> Result<(), Error> {
         NoTls,
     )?;
 
+    setup_database( &mut client )?;
+
+
+    Ok(())
+}
+
+fn setup_database( client: &mut Client ) -> Result< (), Error > {
     // Create User Table
     client.batch_execute(
         "
@@ -64,6 +71,7 @@ fn main() -> Result<(), Error> {
     ",
     )?;
     println!("layers table created successfully.");
-
+    
     Ok(())
+
 }
