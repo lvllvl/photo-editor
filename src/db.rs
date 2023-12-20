@@ -10,7 +10,7 @@ pub fn create_pool() -> Pool {
 }
 
 // Add a user to the database ////////////////////////////////////////////////////
-pub async fn add_user(pool: &Pool, username: &str, email: &str) -> Result<(), Error> {
+pub async fn add_user(pool: &Pool, username: &str, email: &str) -> Result<(), MyDbError> {
 
     let mut client = pool.get().await?;
     let statement = client.prepare("INSERT INTO users (username, email) VALUES ($1, $2)").await?;
@@ -75,22 +75,26 @@ pub async fn setup_database(client: &mut deadpool_postgres::Client) -> Result<()
     Ok(())
 
 }
+//////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Debug)]
 pub enum MyDbError {
     PostgresError(postgres::Error),
-    PoolError(deadpool::managed::errors::PoolError<postgres::Error>),
+    PoolError(deadpool::managed::PoolError<postgres::Error>),
     // ... other error types as needed
 }
 
 impl From<postgres::Error> for MyDbError {
+
     fn from(err: postgres::Error) -> MyDbError {
         MyDbError::PostgresError(err)
     }
+
 }
 
-impl From<deadpool::managed::errors::PoolError<postgres::Error>> for MyDbError {
-    fn from(err: deadpool::managed::errors::PoolError<postgres::Error>) -> MyDbError {
+impl From<deadpool::managed::PoolError<postgres::Error>> for MyDbError {
+
+    fn from(err: deadpool::managed::PoolError<postgres::Error>) -> MyDbError {
         MyDbError::PoolError(err)
     }
 }

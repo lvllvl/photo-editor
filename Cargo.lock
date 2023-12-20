@@ -1078,6 +1078,7 @@ dependencies = [
  "dotenv",
  "image",
  "postgres",
+ "serde",
  "tokio",
  "tokio-postgres",
 ]
