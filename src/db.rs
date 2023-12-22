@@ -5,7 +5,7 @@ use tokio_postgres::{Error, NoTls, Row};
 // Manage database connections ////////////////////////////////////////////////////
 // setup a pool of connections to the database ////////////////////////////////////
 pub fn create_pool() -> Pool {
-    let mut cfg = Config::new();
+    let cfg = Config::new();
     // Set configuration details...
     cfg.create_pool(None, NoTls).expect("Failed to create pool")
 }
@@ -161,4 +161,56 @@ impl User {
             // TODO: add other fields
         }
     }
+}
+
+
+/// Unit tests ////////////////////////////////////////////////////////////////
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+    use dotenv::dotenv;
+
+    // Setup mock database connection
+    fn setup() -> Pool {
+        dotenv().ok(); // Load variables from .env file
+        let mut cfg = Config::new();
+
+        cfg.host = env::var( "DB_HOST" ).ok();
+        cfg.user = env::var( "DB_USER" ).ok();
+        cfg.password = env::var( "DB_PASSWORD" ).ok();
+        cfg.dbname = env::var( "DB_NAME" ).ok();
+
+        cfg.create_pool(None, NoTls).expect("Failed to create pool")
+    }
+
+    #[tokio::test]
+    async fn test_add_user() {
+
+        let pool = setup();
+        match add_user( &pool, "test_user", "test@example.com" ).await {
+            Ok(_) => println!( "Test add_user: User added successfully"),
+            Err(e) => eprintln!("Test add_user failed: {:?}", e ),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_get_user_by_username() {
+        let pool = setup();
+        let _ = add_user( &pool, "testuser", "test@example.com" ).await; // Add a user for test
+
+        let mut client = pool.get().await.unwrap();
+
+        match get_user_by_username( &mut client, "testuser" ).await {
+
+            Ok( user ) => {
+                assert_eq!( user.username, "testuser" );
+                assert_eq!( user.email, "test@example.com" );
+                println!( "Test get_user_by_username: User found successfully" );
+
+            },
+            Err( e ) => eprintln!( "Test get_user_by_username failed: {:?}", e ),
+        }
+    }
+
 }

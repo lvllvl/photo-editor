@@ -1,5 +1,4 @@
 // web api endpoints 
-
 // POST /api/transform/rotate for a rotate tool.
 // POST /api/filter/blur for applying a blur filter.
 // use crate::db::{ add_user, create_pool };
@@ -8,7 +7,7 @@ use deadpool_postgres::Pool;
 use serde::Deserialize;
 
 use crate::db;
-use crate::db::{ add_user, MyDbError, create_pool };
+use crate::db::{ add_user, MyDbError };
  
 #[derive(Debug)]
 pub enum MyError { 
@@ -93,6 +92,9 @@ async fn delete_user_handler( pool: web::Data< Pool >, path: web::Path<( String,
 
     match db::delete_user( &pool, username ).await {
 
+        Ok( _ ) => HttpResponse::Ok().json( "User deleted successfully" ),
+        Err( MyDbError::NotFound ) => HttpResponse::NotFound().json( "User not found" ),
+        Err( _ ) => HttpResponse::InternalServerError().json( "Internal server error" ),
 
     }
 
@@ -104,7 +106,7 @@ async fn delete_user_handler( pool: web::Data< Pool >, path: web::Path<( String,
 pub async fn start_server( pool: Pool ) -> Result< (), MyError > {
     HttpServer::new( move || {
         App::new()
-            .data( pool.clone() ) // Pass the pool to the applicaiton
+            .app_data( web::Data::new( pool.clone()))
             .route( "/", web::get().to( index ))
             .route( "/add_user", web::post().to( add_user_handler ))
             .route( "/user/{username}", web::get().to( get_user_handler ))
