@@ -7,6 +7,7 @@ use actix_web::{ web, App, HttpServer, Responder, HttpResponse };
 use deadpool_postgres::Pool;
 use serde::Deserialize;
 
+use crate::db;
 use crate::db::{ add_user, MyDbError, create_pool };
  
 #[derive(Debug)]
@@ -37,12 +38,17 @@ struct NewUser {
 
 // Route handler to add a new user
 async fn add_user_handler(pool: web::Data<Pool>, new_user: web::Json<NewUser>) -> HttpResponse {
+
     match add_user(&pool, &new_user.username, &new_user.email).await {
+
         Ok(_) => HttpResponse::Ok().json("User added successfully"),
         Err(MyDbError::PostgresError(e)) => HttpResponse::InternalServerError().json(format!("Postgres error: {}", e)),
         Err(MyDbError::PoolError(e)) => HttpResponse::InternalServerError().json(format!("Pool error: {}", e)),
+        Err(_) => HttpResponse::InternalServerError().json("Unhandled error"),
+        
         // Handle other errors
     }
+
 }
 
 
@@ -52,6 +58,30 @@ async fn index() -> impl Responder {
 
 }
 
+// Route handler to get a user by username /////////////////////////////////////////
+async fn get_user_handler( pool: web::Data< Pool >, path: web::Path<( String, )> ) -> HttpResponse {
+
+    let username = &path.into_inner().0;
+
+    match pool.get().await {
+        Ok( mut client ) => {
+            
+            match db::get_user_by_username( &mut client, username ).await {
+                
+                Ok( user ) => HttpResponse::Ok().json( user ),
+                Err( MyDbError::NotFound ) => HttpResponse::NotFound().finish(),
+                Err( _ ) => HttpResponse::InternalServerError().finish(),
+
+            }
+
+        }
+        Err( _ ) => HttpResponse::InternalServerError().finish(),
+
+    }
+
+}
+
+// Route handler to greet Mank ////////////////////////////////////////////////////
 async fn greet_mank() -> impl Responder { 
     "Hello Mank!" 
 }
@@ -65,8 +95,10 @@ pub async fn start_server( pool: Pool ) -> Result< (), MyError > {
             .data( pool.clone() ) // Pass the pool to the applicaiton
             .route( "/", web::get().to( index ))
             .route( "/add_user", web::post().to( add_user_handler ))
+            .route( "/user/{username}", web::get().to( get_user_handler ))
             .route( "/mank", web::get().to( greet_mank ))
             // Other routes
+
     })
     .bind( "127.0.0.1:8080" )?
     .run()
