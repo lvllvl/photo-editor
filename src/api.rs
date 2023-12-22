@@ -86,6 +86,18 @@ async fn greet_mank() -> impl Responder {
     "Hello Mank!" 
 }
 /////////////////////////// Define more routes here ///////////////////////////////
+// Route handler to delete user by username ///////////////////////////////////////
+async fn delete_user_handler( pool: web::Data< Pool >, path: web::Path<( String, )> ) -> HttpResponse {
+
+    let username = &path.into_inner().0;
+
+    match db::delete_user( &pool, username ).await {
+
+
+    }
+
+}
+// Route handler to get a user by email ///////////////////////////////////////////
 
 // Function to start the server ///////////////////////////////////////////////////
 
@@ -96,6 +108,7 @@ pub async fn start_server( pool: Pool ) -> Result< (), MyError > {
             .route( "/", web::get().to( index ))
             .route( "/add_user", web::post().to( add_user_handler ))
             .route( "/user/{username}", web::get().to( get_user_handler ))
+            .route( "/user/{username}", web::delete().to( delete_user_handler ))
             .route( "/mank", web::get().to( greet_mank ))
             // Other routes
 
