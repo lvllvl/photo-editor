@@ -2,6 +2,7 @@ use deadpool_postgres::{Config, Pool};
 use serde::{Deserialize, Serialize};
 use tokio_postgres::{Error, NoTls, Row};
 
+//////////// ********** DB Connection Management ********** ////////////////////////
 // Manage database connections ////////////////////////////////////////////////////
 // setup a pool of connections to the database ////////////////////////////////////
 pub fn create_pool() -> Pool {
@@ -10,6 +11,7 @@ pub fn create_pool() -> Pool {
     cfg.create_pool(None, NoTls).expect("Failed to create pool")
 }
 
+// User Insertion Functions ///////////////////////////////////////////////////////
 // Add a user to the database ////////////////////////////////////////////////////
 pub async fn add_user(pool: &Pool, username: &str, email: &str) -> Result<(), MyDbError> {
     let client = pool.get().await?;
@@ -20,6 +22,7 @@ pub async fn add_user(pool: &Pool, username: &str, email: &str) -> Result<(), My
     Ok(())
 }
 
+//////////// ********** User Retrieval Functions ********** ///////////////////////
 // Get a user by username from the database //////////////////////////////////////
 pub async fn get_user_by_username(
     client: &mut deadpool_postgres::Client,
@@ -37,9 +40,96 @@ pub async fn get_user_by_username(
         Err(MyDbError::NotFound)
     }
 }
-
 // Get a user by email from the database /////////////////////////////////////////
+pub async fn get_user_by_email( pool: &Pool, email: &str ) -> Result< User, MyDbError > {
 
+    let client = pool.get().await?;
+    let statement = client.prepare( "SELECT * FROM users WHERE email = $1" ).await?;
+    let rows = client.query( &statement, &[ &email ] ).await?;
+
+    if let Some( row ) = rows.into_iter().next() {
+        Ok( User::from_row( &row ) )
+    } else {
+        Err( MyDbError::NotFound )
+    }
+}
+// Get all users from the database ///////////////////////////////////////////////
+pub async fn get_all_users( pool: &Pool ) -> Result< Vec< User >, MyDbError > {
+
+    let client = pool.get().await?;
+    let statement = client.prepare( "SELECT * FROM users" ).await?;
+    let rows = client.query( &statement, &[] ).await?;
+
+    let mut users = Vec::new();
+
+    for row in rows {
+        users.push( User::from_row( &row ) );
+    }
+
+    Ok( users )
+
+}
+
+// TODO: //////////////////////////////////////////////////////////////////////////
+// Retrieve users based on various filters e.g., age, location, etc. //////////////
+// Retrieve recent users, from a certain timeframe ////////////////////////////////
+
+// User Update Functions /////////////////////////////////////////////////////////
+// Update user email in the database /////////////////////////////////////////////
+pub async fn update_user_email( pool: &Pool, username: &str, new_email: &str ) -> Result< (), MyDbError > {
+
+    let client = pool.get().await?;
+    let statement = client
+        .prepare( "UPDATE users SET email = $1 WHERE username = $2" )
+        .await?;
+    let result = client.execute( &statement, &[ &new_email, &username ] ).await?;
+
+    if result == 0 {
+        // No rows were updated, i.e., the user was not found
+        Err( MyDbError::NotFound )
+    } else {
+        Ok( () )
+    }
+}
+
+// Update user profile, profile details, names, contact info, etc. ////////////////
+// Deactivate user account, or activate ///////////////////////////////////////////
+
+//////////// ********** Session Management Functions ********** ///////////////////
+// create_session /////////////////////////////////////////////////////////////////
+// end_session ///////////////////////////////////////////////////////////////////
+// get_active_sessions ///////////////////////////////////////////////////////////
+
+
+//////////// ********** Image Management Functions ********** ////////////////////
+// add_image: add new image to database //////////////////////////////////////////
+// get_image: get image by id ////////////////////////////////////////////////////
+// udpate_image: update image data/details ///////////////////////////////////////
+// delete_image: delete image from database //////////////////////////////////////
+
+
+//////////// ********** Layer Management Functions ********** ////////////////////
+/// for the layers table
+// add_layer: add new layer to an image //////////////////////////////////////////
+// get_layer: Retrieve a specific layer //////////////////////////////////////////
+// update_layer: update layer data/details ///////////////////////////////////////
+// delete_layer: delete layer from database/image ////////////////////////////////
+
+
+//////////// ********** Analytics & Reports ********** ////////////////////////////
+// user_activity_report: generate reports on user activity ////////////////////////
+// image_statistics: get statistics on image uploads, edits, etc. ////////////////
+
+
+//////////// ********** DB Health & Maintenance********** ////////////////////////
+// check_db_health: check database health ////////////////////////////////////////
+// backup_db: backup database ////////////////////////////////////////////////////
+// restore_db: restore database //////////////////////////////////////////////////
+// delete_db: delete database ////////////////////////////////////////////////////
+// clean_db: clean database, optimize, etc. ////////////////////////////////////// 
+
+
+//////////// ********** User Deletion Fuctions ********** /////////////////////////
 // Delete a user from the database ///////////////////////////////////////////////
 pub async fn delete_user(pool: &Pool, username: &str) -> Result<(), MyDbError> {
 
@@ -57,7 +147,7 @@ pub async fn delete_user(pool: &Pool, username: &str) -> Result<(), MyDbError> {
     }
 }
 
-// Setup database schema /////////////////////////////////////////////////////////
+//////////// ********** Setup Database Schema ********** /////////////////////////
 pub async fn setup_database(client: &mut deadpool_postgres::Client) -> Result<(), Error> {
     // Create User Table
     client
@@ -120,8 +210,8 @@ pub async fn setup_database(client: &mut deadpool_postgres::Client) -> Result<()
 
     Ok(())
 }
-//////////////////////////////////////////////////////////////////////////////////
 
+//////////// ********** Error Handling ********** ////////////////////////////////
 #[derive(Debug)]
 pub enum MyDbError {
     PostgresError(postgres::Error),
@@ -142,7 +232,8 @@ impl From<deadpool::managed::PoolError<postgres::Error>> for MyDbError {
     }
 }
 
-// Struct to represent a user //////////////////////////////////////////////////
+//////////// ********** User Representation ********** ////////////////////////////
+// Struct to represent a user ///////////////////////////////////////////////////
 #[derive(Debug, Serialize, Deserialize)]
 pub struct User {
     pub id: i32,
@@ -164,7 +255,7 @@ impl User {
 }
 
 
-/// Unit tests ////////////////////////////////////////////////////////////////
+//////////// ********** Unit Tests ********** /////////////////////////////////
 #[cfg(test)]
 mod tests {
     use super::*;
