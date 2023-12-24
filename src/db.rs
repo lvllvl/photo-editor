@@ -142,7 +142,6 @@ pub async fn get_all_users(pool: &Pool) -> Result<Vec<User>, MyDbError> {
     Ok(users)
 }
 
-
 // TODO: Retrieve users based on various filters e.g., age, location, etc. //////////////
 // TODO: Retrieve recent users, from a certain timeframe ////////////////////////////////
 
@@ -231,15 +230,44 @@ pub async fn delete_image(pool: &Pool, id: i32) -> Result<(), MyDbError> {
         // No rows were deleted, i.e., the image was not found
         Err(MyDbError::NotFound)
     } else {
-        Ok( () )
+        Ok(())
     }
 }
 
 //////////// ********** Layer Management Functions ********** ////////////////////
 // add_layer: add new layer to an image //////////////////////////////////////////
+pub async fn add_layer(
+    pool: &Pool,
+    image_id: i32,
+    layer_name: &str,
+    layer_type: &str,
+    layer_data: &[u8],
+) -> Result<(), MyDbError> {
+
+    let client = pool.get().await?;
+    let statement = client
+        .prepare( "INSERT INTO layers (image_id, layer_name, layer_type, layer_data) VALUES ($1, $2, $3, $4)")
+        .await?;
+
+    client
+        .execute(
+            &statement,
+            &[&image_id, &layer_name, &layer_type, &layer_data],
+        )
+        .await?;
+    Ok(())
+}
 // get_layer: Retrieve a specific layer //////////////////////////////////////////
 // update_layer: update layer data/details ///////////////////////////////////////
 // delete_layer: delete layer from database/image ////////////////////////////////
+// TODO: pub async fn get_layers_by_image_id(pool: &Pool, image_id: i32) -> Result<Vec<Layer>, MyDbError>;
+// TODO: pub async fn update_layer_order(pool: &Pool, layer_id: i32, new_order: i32) -> Result<(), MyDbError>;
+// TODO: pub async fn toggle_layer_visibility(pool: &Pool, layer_id: i32, visible: bool) -> Result<(), MyDbError>;
+// TODO: pub async fn duplicate_layer(pool: &Pool, layer_id: i32) -> Result<i32, MyDbError>; // Returns new layer ID
+// TODO: pub async fn merge_layers(pool: &Pool, layer_ids: Vec<i32>) -> Result<i32, MyDbError>; // Returns new merged layer ID
+// TODO: pub async fn search_layers(pool: &Pool, search_query: &str) -> Result<Vec<Layer>, MyDbError>;
+// TODO: pub async fn get_layer_statistics(pool: &Pool) -> Result<LayerStatistics, MyDbError>;
+// TODO: pub async fn create_layer_group(pool: &Pool, group_name: &str, layer_ids: Vec<i32>) -> Result<i32, MyDbError>; // Returns group ID
 
 //////////// ********** Analytics & Reports ********** ////////////////////////////
 // user_activity_report: generate reports on user activity ////////////////////////
@@ -268,7 +296,6 @@ pub async fn delete_user(pool: &Pool, username: &str) -> Result<(), MyDbError> {
         Ok(())
     }
 }
-
 
 //////////// ********** Error Handling ********** ////////////////////////////////
 #[derive(Debug)]
@@ -321,6 +348,22 @@ pub struct Image {
     pub file_path: String,
     pub created_at: String,
     pub updated_at: String,
+    // Add other fields TODO:
+}
+
+//////////// ********** Layer Representation ********** ////////////////////////////
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Layer {
+    pub id: i32,
+    pub image_id: i32,
+    pub layer_name: String,
+    pub creation_date: String,
+    pub last_modified: String,
+    pub user_id: i32,
+    pub layer_type: String,
+    pub visibility: bool,
+    pub opacity: f32,
+    pub layer_data: Vec<u8>,
     // Add other fields TODO:
 }
 
