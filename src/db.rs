@@ -41,33 +41,32 @@ pub async fn get_user_by_username(
     }
 }
 // Get a user by email from the database /////////////////////////////////////////
-pub async fn get_user_by_email( pool: &Pool, email: &str ) -> Result< User, MyDbError > {
-
+pub async fn get_user_by_email(pool: &Pool, email: &str) -> Result<User, MyDbError> {
     let client = pool.get().await?;
-    let statement = client.prepare( "SELECT * FROM users WHERE email = $1" ).await?;
-    let rows = client.query( &statement, &[ &email ] ).await?;
+    let statement = client
+        .prepare("SELECT * FROM users WHERE email = $1")
+        .await?;
+    let rows = client.query(&statement, &[&email]).await?;
 
-    if let Some( row ) = rows.into_iter().next() {
-        Ok( User::from_row( &row ) )
+    if let Some(row) = rows.into_iter().next() {
+        Ok(User::from_row(&row))
     } else {
-        Err( MyDbError::NotFound )
+        Err(MyDbError::NotFound)
     }
 }
 // Get all users from the database ///////////////////////////////////////////////
-pub async fn get_all_users( pool: &Pool ) -> Result< Vec< User >, MyDbError > {
-
+pub async fn get_all_users(pool: &Pool) -> Result<Vec<User>, MyDbError> {
     let client = pool.get().await?;
-    let statement = client.prepare( "SELECT * FROM users" ).await?;
-    let rows = client.query( &statement, &[] ).await?;
+    let statement = client.prepare("SELECT * FROM users").await?;
+    let rows = client.query(&statement, &[]).await?;
 
     let mut users = Vec::new();
 
     for row in rows {
-        users.push( User::from_row( &row ) );
+        users.push(User::from_row(&row));
     }
 
-    Ok( users )
-
+    Ok(users)
 }
 
 // TODO: //////////////////////////////////////////////////////////////////////////
@@ -76,19 +75,22 @@ pub async fn get_all_users( pool: &Pool ) -> Result< Vec< User >, MyDbError > {
 
 // User Update Functions /////////////////////////////////////////////////////////
 // Update user email in the database /////////////////////////////////////////////
-pub async fn update_user_email( pool: &Pool, username: &str, new_email: &str ) -> Result< (), MyDbError > {
-
+pub async fn update_user_email(
+    pool: &Pool,
+    username: &str,
+    new_email: &str,
+) -> Result<(), MyDbError> {
     let client = pool.get().await?;
     let statement = client
-        .prepare( "UPDATE users SET email = $1 WHERE username = $2" )
+        .prepare("UPDATE users SET email = $1 WHERE username = $2")
         .await?;
-    let result = client.execute( &statement, &[ &new_email, &username ] ).await?;
+    let result = client.execute(&statement, &[&new_email, &username]).await?;
 
     if result == 0 {
         // No rows were updated, i.e., the user was not found
-        Err( MyDbError::NotFound )
+        Err(MyDbError::NotFound)
     } else {
-        Ok( () )
+        Ok(())
     }
 }
 
@@ -100,13 +102,65 @@ pub async fn update_user_email( pool: &Pool, username: &str, new_email: &str ) -
 // end_session ///////////////////////////////////////////////////////////////////
 // get_active_sessions ///////////////////////////////////////////////////////////
 
-
 //////////// ********** Image Management Functions ********** ////////////////////
 // add_image: add new image to database //////////////////////////////////////////
-// get_image: get image by id ////////////////////////////////////////////////////
-// udpate_image: update image data/details ///////////////////////////////////////
-// delete_image: delete image from database //////////////////////////////////////
+pub async fn add_image(pool: &Pool, session_id: i32, file_path: &str) -> Result<(), MyDbError> {
+    let client = pool.get().await?;
+    let statement = client
+        .prepare( "INSERT INTO images (session_id, file_path, created_at, updated_at) VALUES ($1, $2, NOW(), NOW())")
+        .await?;
+    client
+        .execute(&statement, &[&session_id, &file_path])
+        .await?;
+    Ok(())
+}
 
+// get_image: get image by id ////////////////////////////////////////////////////
+pub async fn get_image(pool: &Pool, id: i32) -> Result<Image, MyDbError> {
+    let client = pool.get().await?;
+    let statement = client.prepare("SELECT * FROM images WHERE id = $1").await?;
+    let rows = client.query(&statement, &[&id]).await?;
+    if let Some(row) = rows.into_iter().next() {
+        Ok(Image {
+            id: row.get("id"),
+            session_id: row.get("session_id"),
+            file_path: row.get("file_path"),
+            created_at: row.get("created_at"),
+            updated_at: row.get("updated_at"),
+        })
+    } else {
+        Err(MyDbError::NotFound)
+    }
+}
+
+// udpate_image: update image data/details ///////////////////////////////////////
+pub async fn update_image(pool: &Pool, id: i32, new_file_path: &str) -> Result<(), MyDbError> {
+    let client = pool.get().await?;
+    let statement = client
+        .prepare("UPDATE images set file_path = $1 WHERE id = $2")
+        .await?;
+    let result = client.execute(&statement, &[&new_file_path, &id]).await?;
+
+    if result == 0 {
+        // No rows were updated, i.e., the image was not found
+        Err(MyDbError::NotFound)
+    } else {
+        Ok(())
+    }
+}
+
+// delete_image: delete image from database //////////////////////////////////////
+pub async fn delete_image(pool: &Pool, id: i32) -> Result<(), MyDbError> {
+    let client = pool.get().await?;
+    let statement = client.prepare("DELETE FROM images WHERE id = $1").await?;
+    let result = client.execute(&statement, &[&id]).await?;
+    if result == 0 {
+        // No rows were deleted, i.e., the image was not found
+        Err(MyDbError::NotFound)
+    } else {
+        Ok( () )
+    }
+}
 
 //////////// ********** Layer Management Functions ********** ////////////////////
 /// for the layers table
@@ -115,24 +169,20 @@ pub async fn update_user_email( pool: &Pool, username: &str, new_email: &str ) -
 // update_layer: update layer data/details ///////////////////////////////////////
 // delete_layer: delete layer from database/image ////////////////////////////////
 
-
 //////////// ********** Analytics & Reports ********** ////////////////////////////
 // user_activity_report: generate reports on user activity ////////////////////////
 // image_statistics: get statistics on image uploads, edits, etc. ////////////////
-
 
 //////////// ********** DB Health & Maintenance********** ////////////////////////
 // check_db_health: check database health ////////////////////////////////////////
 // backup_db: backup database ////////////////////////////////////////////////////
 // restore_db: restore database //////////////////////////////////////////////////
 // delete_db: delete database ////////////////////////////////////////////////////
-// clean_db: clean database, optimize, etc. ////////////////////////////////////// 
-
+// clean_db: clean database, optimize, etc. //////////////////////////////////////
 
 //////////// ********** User Deletion Fuctions ********** /////////////////////////
 // Delete a user from the database ///////////////////////////////////////////////
 pub async fn delete_user(pool: &Pool, username: &str) -> Result<(), MyDbError> {
-
     let client = pool.get().await?;
     let statement = client
         .prepare("DELETE FROM users WHERE username = $1")
@@ -186,6 +236,8 @@ pub async fn setup_database(client: &mut deadpool_postgres::Client) -> Result<()
             id              SERIAL PRIMARY KEY,
             session_id      INTEGER REFERENCES sessions,
             file_path       VARCHAR NOT NULL
+            created_at      TIMESTAMP NOT NULL,
+            updated_at      TIMESTAMP NOT NULL,
             -- Additional fields as necessary
         )
     ",
@@ -254,54 +306,60 @@ impl User {
     }
 }
 
+//////////// ********** Image Representation ********** ////////////////////////////
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Image {
+    pub id: i32,
+    pub session_id: i32,
+    pub file_path: String,
+    pub created_at: String,
+    pub updated_at: String,
+    // Add other fields TODO:
+}
 
 //////////// ********** Unit Tests ********** /////////////////////////////////
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
     use dotenv::dotenv;
+    use std::env;
 
     // Setup mock database connection
     fn setup() -> Pool {
         dotenv().ok(); // Load variables from .env file
         let mut cfg = Config::new();
 
-        cfg.host = env::var( "DB_HOST" ).ok();
-        cfg.user = env::var( "DB_USER" ).ok();
-        cfg.password = env::var( "DB_PASSWORD" ).ok();
-        cfg.dbname = env::var( "DB_NAME" ).ok();
+        cfg.host = env::var("DB_HOST").ok();
+        cfg.user = env::var("DB_USER").ok();
+        cfg.password = env::var("DB_PASSWORD").ok();
+        cfg.dbname = env::var("DB_NAME").ok();
 
         cfg.create_pool(None, NoTls).expect("Failed to create pool")
     }
 
     #[tokio::test]
     async fn test_add_user() {
-
         let pool = setup();
-        match add_user( &pool, "test_user", "test@example.com" ).await {
-            Ok(_) => println!( "Test add_user: User added successfully"),
-            Err(e) => eprintln!("Test add_user failed: {:?}", e ),
+        match add_user(&pool, "test_user", "test@example.com").await {
+            Ok(_) => println!("Test add_user: User added successfully"),
+            Err(e) => eprintln!("Test add_user failed: {:?}", e),
         }
     }
 
     #[tokio::test]
     async fn test_get_user_by_username() {
         let pool = setup();
-        let _ = add_user( &pool, "testuser", "test@example.com" ).await; // Add a user for test
+        let _ = add_user(&pool, "testuser", "test@example.com").await; // Add a user for test
 
         let mut client = pool.get().await.unwrap();
 
-        match get_user_by_username( &mut client, "testuser" ).await {
-
-            Ok( user ) => {
-                assert_eq!( user.username, "testuser" );
-                assert_eq!( user.email, "test@example.com" );
-                println!( "Test get_user_by_username: User found successfully" );
-
-            },
-            Err( e ) => eprintln!( "Test get_user_by_username failed: {:?}", e ),
+        match get_user_by_username(&mut client, "testuser").await {
+            Ok(user) => {
+                assert_eq!(user.username, "testuser");
+                assert_eq!(user.email, "test@example.com");
+                println!("Test get_user_by_username: User found successfully");
+            }
+            Err(e) => eprintln!("Test get_user_by_username failed: {:?}", e),
         }
     }
-
 }
