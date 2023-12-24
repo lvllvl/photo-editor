@@ -11,7 +11,80 @@ pub fn create_pool() -> Pool {
     cfg.create_pool(None, NoTls).expect("Failed to create pool")
 }
 
-// User Insertion Functions ///////////////////////////////////////////////////////
+//////////// ********** Setup Database Schema ********** /////////////////////////
+pub async fn setup_database(client: &mut deadpool_postgres::Client) -> Result<(), Error> {
+    // Create User Table
+    client
+        .batch_execute(
+            "
+        CREATE TABLE IF NOT EXISTS users (
+            id              SERIAL PRIMARY KEY,
+            username        VARCHAR UNIQUE NOT NULL,
+            email           VARCHAR UNIQUE NOT NULL
+        )
+    ",
+        )
+        .await?;
+    println!("Users table created successfully.");
+
+    // Create Session Table
+    client
+        .batch_execute(
+            "
+        CREATE TABLE IF NOT EXISTS sessions (
+            id              SERIAL PRIMARY KEY,
+            user_id         INTEGER REFERENCES users,
+            start_time      TIMESTAMP NOT NULL,
+            end_time        TIMESTAMP
+        )
+    ",
+        )
+        .await?;
+    println!("sessions table created successfully.");
+
+    // Create Image Table
+    client
+        .batch_execute(
+            "
+        CREATE TABLE IF NOT EXISTS images (
+            id              SERIAL PRIMARY KEY,
+            session_id      INTEGER REFERENCES sessions,
+            file_path       VARCHAR NOT NULL
+            created_at      TIMESTAMP NOT NULL,
+            updated_at      TIMESTAMP NOT NULL,
+            -- Additional fields as necessary
+        )
+    ",
+        )
+        .await?;
+    println!("images table created successfully.");
+
+    // Create Layers Table
+    client
+        .batch_execute(
+            "
+        CREATE TABLE IF NOT EXISTS layers (
+            id              SERIAL PRIMARY KEY,
+            image_id        INTEGER REFERENCES images,
+            layer_name      VARCHAR( 255 ),
+            creation_date   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_modified   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            user_id         INTEGER REFERENCES users,
+            layer_type      VARCHAR( 50 ),
+            visibility      BOOLEAN DEFAULT TRUE,
+            opacity         FLOAT DEFAULT 100,
+            layer_data      BYTEA
+            -- Additional fields as necessary
+        )
+    ",
+        )
+        .await?;
+    println!("layers table created successfully.");
+
+    Ok(())
+}
+
+// ************* User Insertion Functions ************** /////////////////////////
 // Add a user to the database ////////////////////////////////////////////////////
 pub async fn add_user(pool: &Pool, username: &str, email: &str) -> Result<(), MyDbError> {
     let client = pool.get().await?;
@@ -69,9 +142,9 @@ pub async fn get_all_users(pool: &Pool) -> Result<Vec<User>, MyDbError> {
     Ok(users)
 }
 
-// TODO: //////////////////////////////////////////////////////////////////////////
-// Retrieve users based on various filters e.g., age, location, etc. //////////////
-// Retrieve recent users, from a certain timeframe ////////////////////////////////
+
+// TODO: Retrieve users based on various filters e.g., age, location, etc. //////////////
+// TODO: Retrieve recent users, from a certain timeframe ////////////////////////////////
 
 // User Update Functions /////////////////////////////////////////////////////////
 // Update user email in the database /////////////////////////////////////////////
@@ -94,8 +167,8 @@ pub async fn update_user_email(
     }
 }
 
-// Update user profile, profile details, names, contact info, etc. ////////////////
-// Deactivate user account, or activate ///////////////////////////////////////////
+// TODO: Update user profile, profile details, names, contact info, etc. ////////////////
+// TODO: Deactivate user account, or activate ///////////////////////////////////////////
 
 //////////// ********** Session Management Functions ********** ///////////////////
 // create_session /////////////////////////////////////////////////////////////////
@@ -163,7 +236,6 @@ pub async fn delete_image(pool: &Pool, id: i32) -> Result<(), MyDbError> {
 }
 
 //////////// ********** Layer Management Functions ********** ////////////////////
-/// for the layers table
 // add_layer: add new layer to an image //////////////////////////////////////////
 // get_layer: Retrieve a specific layer //////////////////////////////////////////
 // update_layer: update layer data/details ///////////////////////////////////////
@@ -197,71 +269,6 @@ pub async fn delete_user(pool: &Pool, username: &str) -> Result<(), MyDbError> {
     }
 }
 
-//////////// ********** Setup Database Schema ********** /////////////////////////
-pub async fn setup_database(client: &mut deadpool_postgres::Client) -> Result<(), Error> {
-    // Create User Table
-    client
-        .batch_execute(
-            "
-        CREATE TABLE IF NOT EXISTS users (
-            id              SERIAL PRIMARY KEY,
-            username        VARCHAR UNIQUE NOT NULL,
-            email           VARCHAR UNIQUE NOT NULL
-        )
-    ",
-        )
-        .await?;
-    println!("Users table created successfully.");
-
-    // Create Session Table
-    client
-        .batch_execute(
-            "
-        CREATE TABLE IF NOT EXISTS sessions (
-            id              SERIAL PRIMARY KEY,
-            user_id         INTEGER REFERENCES users,
-            start_time      TIMESTAMP NOT NULL,
-            end_time        TIMESTAMP
-        )
-    ",
-        )
-        .await?;
-    println!("sessions table created successfully.");
-
-    // Create Image Table
-    client
-        .batch_execute(
-            "
-        CREATE TABLE IF NOT EXISTS images (
-            id              SERIAL PRIMARY KEY,
-            session_id      INTEGER REFERENCES sessions,
-            file_path       VARCHAR NOT NULL
-            created_at      TIMESTAMP NOT NULL,
-            updated_at      TIMESTAMP NOT NULL,
-            -- Additional fields as necessary
-        )
-    ",
-        )
-        .await?;
-    println!("images table created successfully.");
-
-    // Create Layers Table
-    client
-        .batch_execute(
-            "
-        CREATE TABLE IF NOT EXISTS layers (
-            id              SERIAL PRIMARY KEY,
-            image_id        INTEGER REFERENCES images,
-            layer_data      BYTEA
-            -- Additional fields as necessary
-        )
-    ",
-        )
-        .await?;
-    println!("layers table created successfully.");
-
-    Ok(())
-}
 
 //////////// ********** Error Handling ********** ////////////////////////////////
 #[derive(Debug)]
