@@ -10,3 +10,8 @@ cd photo-editor
 cd frontend
 npm run dev
 ```
+
+## Contributing
+
+Create your own branch, submit a PR. 
+I will try and create issues as needed. 
