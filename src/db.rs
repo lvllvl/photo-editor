@@ -95,7 +95,7 @@ pub async fn add_user(pool: &Pool, username: &str, email: &str) -> Result<(), My
     Ok(())
 }
 
-//////////// ********** User Retrieval Functions ********** ///////////////////////
+//////////// ********** User Retrieval Functions ********** //////////////////////
 // Get a user by username from the database //////////////////////////////////////
 pub async fn get_user_by_username(
     client: &mut deadpool_postgres::Client,
@@ -142,8 +142,8 @@ pub async fn get_all_users(pool: &Pool) -> Result<Vec<User>, MyDbError> {
     Ok(users)
 }
 
-// TODO: Retrieve users based on various filters e.g., age, location, etc. //////////////
-// TODO: Retrieve recent users, from a certain timeframe ////////////////////////////////
+// TODO: Retrieve users based on various filters e.g., age, location, etc. ///////
+// TODO: Retrieve recent users, from a certain timeframe /////////////////////////
 
 // User Update Functions /////////////////////////////////////////////////////////
 // Update user email in the database /////////////////////////////////////////////
@@ -166,11 +166,11 @@ pub async fn update_user_email(
     }
 }
 
-// TODO: Update user profile, profile details, names, contact info, etc. ////////////////
-// TODO: Deactivate user account, or activate ///////////////////////////////////////////
+// TODO: Update user profile, profile details, names, contact info, etc. /////////
+// TODO: Deactivate user account, or activate ////////////////////////////////////
 
-//////////// ********** Session Management Functions ********** ///////////////////
-// create_session /////////////////////////////////////////////////////////////////
+//////////// ********** Session Management Functions ********** //////////////////
+// create_session ////////////////////////////////////////////////////////////////
 // end_session ///////////////////////////////////////////////////////////////////
 // get_active_sessions ///////////////////////////////////////////////////////////
 
@@ -269,8 +269,8 @@ pub async fn add_layer(
 // TODO: pub async fn get_layer_statistics(pool: &Pool) -> Result<LayerStatistics, MyDbError>;
 // TODO: pub async fn create_layer_group(pool: &Pool, group_name: &str, layer_ids: Vec<i32>) -> Result<i32, MyDbError>; // Returns group ID
 
-//////////// ********** Analytics & Reports ********** ////////////////////////////
-// user_activity_report: generate reports on user activity ////////////////////////
+//////////// ********** Analytics & Reports ********** ///////////////////////////
+// user_activity_report: generate reports on user activity ///////////////////////
 // image_statistics: get statistics on image uploads, edits, etc. ////////////////
 
 //////////// ********** DB Health & Maintenance********** ////////////////////////
@@ -280,7 +280,7 @@ pub async fn add_layer(
 // delete_db: delete database ////////////////////////////////////////////////////
 // clean_db: clean database, optimize, etc. //////////////////////////////////////
 
-//////////// ********** User Deletion Fuctions ********** /////////////////////////
+//////////// ********** User Deletion Fuctions ********** ////////////////////////
 // Delete a user from the database ///////////////////////////////////////////////
 pub async fn delete_user(pool: &Pool, username: &str) -> Result<(), MyDbError> {
     let client = pool.get().await?;
@@ -318,8 +318,8 @@ impl From<deadpool::managed::PoolError<postgres::Error>> for MyDbError {
     }
 }
 
-//////////// ********** User Representation ********** ////////////////////////////
-// Struct to represent a user ///////////////////////////////////////////////////
+//////////// ********** User Representation ********** ///////////////////////////
+// Struct to represent a user ////////////////////////////////////////////////////
 #[derive(Debug, Serialize, Deserialize)]
 pub struct User {
     pub id: i32,
@@ -340,7 +340,7 @@ impl User {
     }
 }
 
-//////////// ********** Image Representation ********** ////////////////////////////
+//////////// ********** Image Representation ********** //////////////////////////
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Image {
     pub id: i32,
@@ -351,7 +351,7 @@ pub struct Image {
     // Add other fields TODO:
 }
 
-//////////// ********** Layer Representation ********** ////////////////////////////
+//////////// ********** Layer Representation ********** //////////////////////////
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Layer {
     pub id: i32,
@@ -367,13 +367,14 @@ pub struct Layer {
     // Add other fields TODO:
 }
 
-//////////// ********** Unit Tests ********** /////////////////////////////////
+//////////// ********** Unit Tests ********** ////////////////////////////////////
 #[cfg(test)]
 mod tests {
     use super::*;
     use dotenv::dotenv;
     use std::env;
 
+    ///////////////////// ********** Setup ********** ////////////////////////////
     // Setup mock database connection
     fn setup() -> Pool {
         dotenv().ok(); // Load variables from .env file
@@ -387,29 +388,43 @@ mod tests {
         cfg.create_pool(None, NoTls).expect("Failed to create pool")
     }
 
-    #[tokio::test]
-    async fn test_add_user() {
-        let pool = setup();
-        match add_user(&pool, "test_user", "test@example.com").await {
-            Ok(_) => println!("Test add_user: User added successfully"),
-            Err(e) => eprintln!("Test add_user failed: {:?}", e),
-        }
-    }
+    ////////////////////// ********** User Tests ********** //////////////////////
+    mod user_tests {
+        use super::*;
 
-    #[tokio::test]
-    async fn test_get_user_by_username() {
-        let pool = setup();
-        let _ = add_user(&pool, "testuser", "test@example.com").await; // Add a user for test
-
-        let mut client = pool.get().await.unwrap();
-
-        match get_user_by_username(&mut client, "testuser").await {
-            Ok(user) => {
-                assert_eq!(user.username, "testuser");
-                assert_eq!(user.email, "test@example.com");
-                println!("Test get_user_by_username: User found successfully");
+        #[tokio::test]
+        async fn test_add_user() {
+            let pool = setup();
+            match add_user(&pool, "test_user", "test@example.com").await {
+                Ok(_) => println!("Test add_user: User added successfully"),
+                Err(e) => eprintln!("Test add_user failed: {:?}", e),
             }
-            Err(e) => eprintln!("Test get_user_by_username failed: {:?}", e),
         }
+
+        #[tokio::test]
+        async fn test_get_user_by_username() {
+            let pool = setup();
+            let _ = add_user(&pool, "testuser", "test@example.com").await; // Add a user for test
+
+            let mut client = pool.get().await.unwrap();
+
+            match get_user_by_username(&mut client, "testuser").await {
+                Ok(user) => {
+                    assert_eq!(user.username, "testuser");
+                    assert_eq!(user.email, "test@example.com");
+                    println!("Test get_user_by_username: User found successfully");
+                }
+                Err(e) => eprintln!("Test get_user_by_username failed: {:?}", e),
+            }
+        }
+
     }
+    
+    // TODO: 
+    ////////////////////// ********** Image Tests ********** /////////////////////
+    ////////////////////// ********** Layer Tests ********** /////////////////////
+    ////////////////////// ********** Session Tests ********** ///////////////////
+    ////////////////////// ********** Analytics Tests ********** /////////////////
+
+
 }
