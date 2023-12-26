@@ -234,6 +234,7 @@ pub async fn delete_image(pool: &Pool, id: i32) -> Result<(), MyDbError> {
     }
 }
 
+//////////////////////////////////////////////////////////////////////////////////
 //////////// ********** Layer Management Functions ********** ////////////////////
 // add_layer: add new layer to an image //////////////////////////////////////////
 pub async fn add_layer(
@@ -257,9 +258,64 @@ pub async fn add_layer(
         .await?;
     Ok(())
 }
+
 // get_layer: Retrieve a specific layer //////////////////////////////////////////
+pub async fn get_layer( pool: &Pool, id: i32 ) -> Result<Layer, MyDbError> {
+
+    let client = pool.get().await?;
+    let statement = client.prepare( "SELECT * FROM layers WHERE id = $1" ).await?;
+    let rows = client.query( &statement, &[&id] ).await?;
+    if let Some( row ) = rows.into_iter().next() {
+        Ok( Layer {
+            id: row.get( "id" ),
+            image_id: row.get( "image_id" ),
+            layer_name: row.get( "layer_name" ),
+            creation_date: row.get( "creation_date" ),
+            last_modified: row.get( "last_modified" ),
+            user_id: row.get( "user_id" ),
+            layer_type: row.get( "layer_type" ),
+            visibility: row.get( "visibility" ),
+            opacity: row.get( "opacity" ),
+            layer_data: row.get( "layer_data" ),
+        })
+    } else {
+        Err( MyDbError::NotFound )
+    }
+
+}
+
 // update_layer: update layer data/details ///////////////////////////////////////
+pub async fn update_layer( pool: &Pool, id: i32, new_layer_name: &str, new_layer_type: &str, new_layer_data: &[u8] ) -> Result<(), MyDbError> {
+
+    let client = pool.get().await?;
+    let statement = client
+        .prepare( "UPDATE layers set layer_name = $1, layer_type = $2, layer_data = $3 WHERE id = $4")
+        .await?;
+    let result = client.execute( &statement, &[ &new_layer_name, &new_layer_type, &new_layer_data, &id ] )
+        .await?;
+
+    if result == 0 {
+        // No rows were updated, i.e., the layer was not found
+        Err( MyDbError::NotFound )
+    } else {
+        Ok(())
+    }
+}
+
 // delete_layer: delete layer from database/image ////////////////////////////////
+pub async fn delete_layer( pool: &Pool, id: i32 ) -> Result< (), MyDbError > {
+
+    let client = pool.get().await?;
+    let statement = client.prepare( "DELETE FROM layers WHERE id = $1").await?;
+    let result = client.execute( &statement, &[ &id ]).await?;
+    if result == 0 {
+        // No rows were deleted, i.e., the layer was not found
+        Err( MyDbError::NotFound )
+    } else {
+        Ok(())
+    }
+}
+
 // TODO: pub async fn get_layers_by_image_id(pool: &Pool, image_id: i32) -> Result<Vec<Layer>, MyDbError>;
 // TODO: pub async fn update_layer_order(pool: &Pool, layer_id: i32, new_order: i32) -> Result<(), MyDbError>;
 // TODO: pub async fn toggle_layer_visibility(pool: &Pool, layer_id: i32, visible: bool) -> Result<(), MyDbError>;
@@ -274,11 +330,11 @@ pub async fn add_layer(
 // image_statistics: get statistics on image uploads, edits, etc. ////////////////
 
 //////////// ********** DB Health & Maintenance********** ////////////////////////
-// check_db_health: check database health ////////////////////////////////////////
-// backup_db: backup database ////////////////////////////////////////////////////
-// restore_db: restore database //////////////////////////////////////////////////
-// delete_db: delete database ////////////////////////////////////////////////////
-// clean_db: clean database, optimize, etc. //////////////////////////////////////
+// TODO: check_db_health: check database health ////////////////////////////////////////
+// TODO: backup_db: backup database ////////////////////////////////////////////////////
+// TODO: restore_db: restore database //////////////////////////////////////////////////
+// TODO: delete_db: delete database ////////////////////////////////////////////////////
+// TODO: clean_db: clean database, optimize, etc. //////////////////////////////////////
 
 //////////// ********** User Deletion Fuctions ********** ////////////////////////
 // Delete a user from the database ///////////////////////////////////////////////
