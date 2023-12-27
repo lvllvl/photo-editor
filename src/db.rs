@@ -449,8 +449,6 @@ pub async fn update_layer(
     }
 }
 
-// TODO: pub async fn update_layer_order(pool: &Pool, layer_id: i32, new_order: i32) -> Result<(), MyDbError>;
-
 // delete_layer: delete layer from database/image ////////////////////////////////
 pub async fn delete_layer( pool: &Pool, id: i32 ) -> Result< (), MyDbError > {
 
@@ -483,8 +481,94 @@ pub async fn update_toggle_layer_visibility(
     }
 }
 
-// TODO: pub async fn duplicate_layer(pool: &Pool, layer_id: i32) -> Result<i32, MyDbError>; // Returns new layer ID
-// TODO: pub async fn merge_layers(pool: &Pool, layer_ids: Vec<i32>) -> Result<i32, MyDbError>; // Returns new merged layer ID
+// duplicate_layer: duplicate a layer, returns new layer ID //////////////////////
+pub async fn duplicate_layer(
+    pool: &Pool, 
+    layer_id: i32
+) -> Result<i32, MyDbError>{
+
+    let client = pool.get().await?;
+    let statement = client.prepare( "SELECT * FROM layers WHERE id = $1" ).await?;
+    let rows = client.query( &statement, &[ &layer_id ] ).await?;
+
+    if let Some( row ) = rows.into_iter().next() {
+        let layer = Layer {
+            id: row.get( "id" ),
+            image_id: row.get( "image_id" ),
+            layer_name: row.get( "layer_name" ),
+            creation_date: row.get( "creation_date" ),
+            last_modified: row.get( "last_modified" ),
+            user_id: row.get( "user_id" ),
+            layer_type: row.get( "layer_type" ),
+            visibility: row.get( "visibility" ),
+            opacity: row.get( "opacity" ),
+            layer_data: row.get( "layer_data" ),
+            order: row.get( "order" ),
+        };
+
+        let statement = client.prepare( "INSERT INTO layers (image_id, layer_name, creation_date, last_modified, user_id, layer_type, visibility, opacity, layer_data, order) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)").await?;
+        let result = client.execute( &statement, &[ &layer.image_id, &layer.layer_name, &layer.creation_date, &layer.last_modified, &layer.user_id, &layer.layer_type, &layer.visibility, &layer.opacity, &layer.layer_data, &layer.order ] ).await?;
+
+        if result == 0 {
+            // No rows were inserted, i.e., the layer was not duplicated
+            Err( MyDbError::NotFound )
+        } else {
+            Ok( layer.id )
+        }
+    } else {
+        Err( MyDbError::NotFound )
+    }
+
+}
+
+// TODO: 
+// Returns new merged layer ID
+// pub async fn merge_layers(pool: &Pool, layer_ids: Vec<i32>) -> Result<LayerGroup, MyDbError> {
+//     let client = pool.get().await?;
+
+//     // Fetch all layers in one query
+//     let fetch_statement = client
+//         .prepare("SELECT * FROM layers WHERE id = ANY($1)")
+//         .await?;
+//     let rows = client.query(&fetch_statement, &[&layer_ids]).await?;
+
+//     // Process rows into layers and merge their data
+//     let mut merged_layer_data: Vec<u8> = Vec::new();
+//     for row in rows {
+//         let layer_data: Vec<u8> = row.get("layer_data");
+//         // Actual merging logic here (currently just appending)
+//         merged_layer_data.extend(layer_data);
+//     }
+
+//     // Insert the merged layer into the database
+//     let insert_statement = client
+//         .prepare("INSERT INTO layers (image_id, layer_name, layer_type, visibility, opacity, layer_data) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id")
+//         .await?;
+    
+//     // Assuming you've determined the appropriate values for these parameters
+//     let image_id = /* determine image_id */;
+//     let layer_name = "Merged Layer";
+//     let layer_type = /* determine layer_type */;
+//     let visibility = true;
+//     let opacity = 1.0;
+
+//     let merged_layer_id: i32 = client
+//         .query_one(&insert_statement, &[&image_id, &layer_name, &layer_type, &visibility, &opacity, &merged_layer_data])
+//         .await?
+//         .get(0);
+
+//     // Create and return a new LayerGroup
+//     let layer_group = LayerGroup {
+//         group_id: merged_layer_id, // Assuming group_id is the merged layer's ID
+//         group_name: String::from("Merged Group"),
+//         layer_ids: layer_ids,
+//         total_layers: layer_ids.len() as i32,
+//         creation_date: Utc::now().to_rfc3339(), // Using chrono for current timestamp
+//     };
+
+//     Ok(layer_group)
+// }
+
 // TODO: pub async fn search_layers(pool: &Pool, search_query: &str) -> Result<Vec<Layer>, MyDbError>;
 // TODO: pub async fn create_layer_group(pool: &Pool, group_name: &str, layer_ids: Vec<i32>) -> Result<i32, MyDbError>; // Returns group ID
 
@@ -572,6 +656,35 @@ impl User {
         }
     }
 }
+//////////////////////////////////////////////////////////////////////////////////
+//////////// ********** LayerStatistics Representation ********** ////////////////
+//////////////////////////////////////////////////////////////////////////////////
+/// Merge a group of layers into a single layer
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LayerGroup{
+    pub group_id: i32,
+    pub group_name: String,
+    pub layer_ids: Vec<i32>,
+    pub total_layers: i32,
+    pub creation_date: String,
+}
+
+//////////////////////////////////////////////////////////////////////////////////
+//////////// ********** LayerStatistics Representation ********** ////////////////
+//////////////////////////////////////////////////////////////////////////////////
+/// Struct to represent layer statistics
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LayerStatistics {
+    pub total_layers: i32,
+    pub average_layers_per_image: f32,
+    // most_active_users: Vec<User>, // Assuming UserId is a type representing a user ID
+    // recent_activity: LayerActivityStatistics,
+    // size_statistics: LayerSizeStatistics,
+    // visibility_statistics: LayerVisibilityStatistics,
+    // opacity_usage: OpacityusageStatistics,
+    // layer_type_distribution: LayerTypeDistribution,
+    // modifications_frequency: ModificationFrequencyStatistics,
+}
 
 //////////////////////////////////////////////////////////////////////////////////
 //////////// ********** Image Representation ********** //////////////////////////
@@ -603,6 +716,25 @@ pub struct Layer {
     pub layer_data: Vec<u8>, // Raw data for the layer
     pub order: i32, // Maintain layer order!
     // Add other fields TODO:
+}
+
+impl Layer {
+    // Create a new layer instance from a database row
+    pub fn from_row(row: &Row) -> Layer {
+        Layer {
+            id: row.get("id"),
+            image_id: row.get("image_id"),
+            layer_name: row.get("layer_name"),
+            creation_date: row.get("creation_date"),
+            last_modified: row.get("last_modified"),
+            user_id: row.get("user_id"),
+            layer_type: row.get("layer_type"),
+            visibility: row.get("visibility"),
+            opacity: row.get("opacity"),
+            layer_data: row.get("layer_data"),
+            order: row.get("order"),
+        }
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////
