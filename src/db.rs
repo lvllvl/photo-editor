@@ -359,20 +359,20 @@ pub async fn update_layer_order(
         layer_map.insert( layer.id, layer );
     }
 
-    // TODO: Reorder layers in memory based on new order
-    // reorder_layers_in_memory( &mut layer_map, layer_id, new_order );
+    reorder_layers_in_memory( &mut layer_map, layer_id, new_order );
 
-    // TODO: Construct a batch update query for all all affected layers
-    // let batch_update_query = construct_batch_update_query( &layer_map );
-    // execute_batch_update( pool, batch_update_query ).await?;
+    let batch_update_query = construct_batch_update_query( &layer_map );
+    execute_batch_update( pool, batch_update_query ).await?;
 
     Ok(()) 
-
 }
 
 // Reorder layers in memory based on new order ///////////////////////////////////
-fn reorder_layers_in_memory(layer_map: &mut HashMap<i32, Layer>, moved_layer_id: i32, new_order: i32) {
-    
+fn reorder_layers_in_memory(
+    layer_map: &mut HashMap<i32, Layer>, 
+    moved_layer_id: i32, 
+    new_order: i32) 
+    {
     // Get the old order number of the moved layer, e.g., 1 or 2 or 3, etc.
     let old_order = layer_map.get( &moved_layer_id ).unwrap().order;
     
@@ -406,6 +406,24 @@ fn reorder_layers_in_memory(layer_map: &mut HashMap<i32, Layer>, moved_layer_id:
     layer_map.get_mut(&moved_layer_id).unwrap().order = new_order;
 }
 
+// Construct a batch update query for all affected layers ////////////////////////
+fn construct_batch_update_query( layer_map: &HashMap<i32, Layer> ) -> String {
+
+    let mut query = String::new();
+    for layer in layer_map.values() {
+        query.push_str( &format!( "UPDATE layers SET order = {} WHERE id = {};", layer.order, layer.id ) );
+    }
+    query
+}
+
+// Execute the batch update query ////////////////////////////////////////////////
+async fn execute_batch_update( pool: &Pool, query: String ) -> Result<(), MyDbError> {
+
+    let client = pool.get().await?;
+    let statement = client.prepare( &query ).await?;
+    client.execute( &statement, &[] ).await?;
+    Ok(())
+}
 
 // update_layer: update layer data/details ///////////////////////////////////////
 pub async fn update_layer( 
@@ -447,7 +465,24 @@ pub async fn delete_layer( pool: &Pool, id: i32 ) -> Result< (), MyDbError > {
     }
 }
 
-// TODO: pub async fn toggle_layer_visibility(pool: &Pool, layer_id: i32, visible: bool) -> Result<(), MyDbError>;
+// update_toggle_layer_visibility: toggle layer visibility ///////////////////////
+pub async fn update_toggle_layer_visibility(
+    pool: &Pool, 
+    layer_id: i32, 
+    visible: bool
+) -> Result<(), MyDbError>{
+
+    let client = pool.get().await?;
+    let statement = client.prepare( "UPDATE layers SET visibility = $1 WHERE id = $2" ).await?;
+    let result = client.execute( &statement, &[ &visible, &layer_id ] ).await?;
+    if result == 0 {
+        // No rows were updated, i.e., the layer was not found
+        Err( MyDbError::NotFound )
+    } else {
+        Ok(())
+    }
+}
+
 // TODO: pub async fn duplicate_layer(pool: &Pool, layer_id: i32) -> Result<i32, MyDbError>; // Returns new layer ID
 // TODO: pub async fn merge_layers(pool: &Pool, layer_ids: Vec<i32>) -> Result<i32, MyDbError>; // Returns new merged layer ID
 // TODO: pub async fn search_layers(pool: &Pool, search_query: &str) -> Result<Vec<Layer>, MyDbError>;
