@@ -1,8 +1,12 @@
+use std::collections::HashMap;
+
 use deadpool_postgres::{Config, Pool};
 use serde::{Deserialize, Serialize};
 use tokio_postgres::{Error, NoTls, Row};
 
+//////////////////////////////////////////////////////////////////////////////////
 //////////// ********** DB Connection Management ********** ////////////////////////
+//////////////////////////////////////////////////////////////////////////////////
 // Manage database connections ////////////////////////////////////////////////////
 // setup a pool of connections to the database ////////////////////////////////////
 pub fn create_pool() -> Pool {
@@ -74,6 +78,7 @@ pub async fn setup_database(client: &mut deadpool_postgres::Client) -> Result<()
             visibility      BOOLEAN DEFAULT TRUE,
             opacity         FLOAT DEFAULT 100,
             layer_data      BYTEA
+            order           INTEGER,
             -- Additional fields as necessary
         )
     ",
@@ -84,7 +89,9 @@ pub async fn setup_database(client: &mut deadpool_postgres::Client) -> Result<()
     Ok(())
 }
 
+//////////////////////////////////////////////////////////////////////////////////
 // ************* User Insertion Functions ************** /////////////////////////
+//////////////////////////////////////////////////////////////////////////////////
 // Add a user to the database ////////////////////////////////////////////////////
 pub async fn add_user(pool: &Pool, username: &str, email: &str) -> Result<(), MyDbError> {
     let client = pool.get().await?;
@@ -95,7 +102,10 @@ pub async fn add_user(pool: &Pool, username: &str, email: &str) -> Result<(), My
     Ok(())
 }
 
+//////////////////////////////////////////////////////////////////////////////////
 //////////// ********** User Retrieval Functions ********** //////////////////////
+//////////////////////////////////////////////////////////////////////////////////
+
 // Get a user by username from the database //////////////////////////////////////
 pub async fn get_user_by_username(
     client: &mut deadpool_postgres::Client,
@@ -145,7 +155,10 @@ pub async fn get_all_users(pool: &Pool) -> Result<Vec<User>, MyDbError> {
 // TODO: Retrieve users based on various filters e.g., age, location, etc. ///////
 // TODO: Retrieve recent users, from a certain timeframe /////////////////////////
 
+//////////////////////////////////////////////////////////////////////////////////
 // User Update Functions /////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////
+
 // Update user email in the database /////////////////////////////////////////////
 pub async fn update_user_email(
     pool: &Pool,
@@ -169,7 +182,10 @@ pub async fn update_user_email(
 // TODO: Update user profile, profile details, names, contact info, etc. /////////
 // TODO: Deactivate user account, or activate ////////////////////////////////////
 
+//////////////////////////////////////////////////////////////////////////////////
 //////////// ********** Session Management Functions ********** //////////////////
+//////////////////////////////////////////////////////////////////////////////////
+
 // create_session ////////////////////////////////////////////////////////////////
 // end_session ///////////////////////////////////////////////////////////////////
 // get_active_sessions ///////////////////////////////////////////////////////////
@@ -236,6 +252,8 @@ pub async fn delete_image(pool: &Pool, id: i32) -> Result<(), MyDbError> {
 
 //////////////////////////////////////////////////////////////////////////////////
 //////////// ********** Layer Management Functions ********** ////////////////////
+//////////////////////////////////////////////////////////////////////////////////
+
 // add_layer: add new layer to an image //////////////////////////////////////////
 pub async fn add_layer(
     pool: &Pool,
@@ -243,6 +261,7 @@ pub async fn add_layer(
     layer_name: &str,
     layer_type: &str,
     layer_data: &[u8],
+    order: i32,
 ) -> Result<(), MyDbError> {
 
     let client = pool.get().await?;
@@ -259,8 +278,11 @@ pub async fn add_layer(
     Ok(())
 }
 
-// get_layer: Retrieve a specific layer //////////////////////////////////////////
-pub async fn get_layer( pool: &Pool, id: i32 ) -> Result<Layer, MyDbError> {
+// get a single layer by layer id ////////////////////////////////////////////////
+pub async fn get_layer_by_layer_id( 
+    pool: &Pool,
+    id: i32,
+) -> Result<Layer, MyDbError> {
 
     let client = pool.get().await?;
     let statement = client.prepare( "SELECT * FROM layers WHERE id = $1" ).await?;
@@ -277,15 +299,122 @@ pub async fn get_layer( pool: &Pool, id: i32 ) -> Result<Layer, MyDbError> {
             visibility: row.get( "visibility" ),
             opacity: row.get( "opacity" ),
             layer_data: row.get( "layer_data" ),
+            order: row.get( "order" ),
         })
     } else {
         Err( MyDbError::NotFound )
     }
+}
+
+// get_layers_by_image_id: Retrieve ALL layers for a specific image //////////////
+pub async fn get_layers_by_image_id( 
+    pool: &Pool, 
+    image_id: i32 
+) -> Result< Vec<Layer>, MyDbError> {
+
+    let client = pool.get().await?;
+    let statement = client.prepare( "SELECT * FROM layers WHERE image_id = $1 ORDER BY \"order\"" ).await?;
+    let rows = client.query( &statement, &[&image_id] ).await?;
+
+    // Sort the layers based on the order field
+    let mut layers = Vec::new();
+    for row in rows {
+        layers.push( Layer {
+            id: row.get( "id" ),
+            image_id: row.get( "image_id" ),
+            layer_name: row.get( "layer_name" ),
+            creation_date: row.get( "creation_date" ),
+            last_modified: row.get( "last_modified" ),
+            user_id: row.get( "user_id" ),
+            layer_type: row.get( "layer_type" ),
+            visibility: row.get( "visibility" ),
+            opacity: row.get( "opacity" ),
+            layer_data: row.get( "layer_data" ),
+            order: row.get( "order" ),
+        });
+    }
+    if layers.is_empty() {
+        Err( MyDbError::NotFound )
+    } else {
+        Ok( layers )
+    }
 
 }
 
+// TODO: pub async fn get_layer_statistics(pool: &Pool) -> Result<LayerStatistics, MyDbError>;
+
+// update_layer_order: update layer order ////////////////////////////////////////
+pub async fn update_layer_order(
+    pool: &Pool,
+    image_id: i32,
+    layer_id: i32,
+    new_order: i32,
+) -> Result<(), MyDbError> {
+
+    let layers = get_layers_by_image_id(pool, image_id).await?; 
+    let mut layer_map = HashMap::new();
+
+    // Create a map from layer id to layer data
+    for layer in layers {
+        layer_map.insert( layer.id, layer );
+    }
+
+    // TODO: Reorder layers in memory based on new order
+    // reorder_layers_in_memory( &mut layer_map, layer_id, new_order );
+
+    // TODO: Construct a batch update query for all all affected layers
+    // let batch_update_query = construct_batch_update_query( &layer_map );
+    // execute_batch_update( pool, batch_update_query ).await?;
+
+    Ok(()) 
+
+}
+
+// Reorder layers in memory based on new order ///////////////////////////////////
+fn reorder_layers_in_memory(layer_map: &mut HashMap<i32, Layer>, moved_layer_id: i32, new_order: i32) {
+    
+    // Get the old order number of the moved layer, e.g., 1 or 2 or 3, etc.
+    let old_order = layer_map.get( &moved_layer_id ).unwrap().order;
+    
+    // Iterate over all layers and update the order of layers in between
+    for layer in layer_map.values_mut() {
+
+        // Compare the old_order and new order of the moved layer
+        match old_order.cmp( &new_order ) {
+            // Layer is moved down: Decrease order of layers in between
+            std::cmp::Ordering::Less => {
+                // if current layer order > old_order && current layer order <= new_order
+                // Layer is moved down
+                if layer.order > old_order && layer.order <= new_order {
+                    layer.order -= 1; 
+                }
+            },
+            std::cmp::Ordering::Greater => {
+                // Layer is moved up: Increase order of layers in between
+                if layer.order < old_order && layer.order >= new_order {
+                    layer.order += 1; 
+                }
+            },
+            std::cmp::Ordering::Equal => {
+                // Layer is moved to the same position: Do nothing
+            },
+        }
+
+    }
+
+    // Finally, set the new order for the moved layer
+    layer_map.get_mut(&moved_layer_id).unwrap().order = new_order;
+}
+
+
 // update_layer: update layer data/details ///////////////////////////////////////
-pub async fn update_layer( pool: &Pool, id: i32, new_layer_name: &str, new_layer_type: &str, new_layer_data: &[u8] ) -> Result<(), MyDbError> {
+pub async fn update_layer( 
+    pool: &Pool, id: i32, 
+    new_layer_name: &str, 
+    new_layer_type: &str, 
+    new_layer_data: &[u8], 
+    new_layer_order: i32 
+) -> Result<(), MyDbError> {
 
     let client = pool.get().await?;
     let statement = client
@@ -302,6 +431,8 @@ pub async fn update_layer( pool: &Pool, id: i32, new_layer_name: &str, new_layer
     }
 }
 
+// TODO: pub async fn update_layer_order(pool: &Pool, layer_id: i32, new_order: i32) -> Result<(), MyDbError>;
+
 // delete_layer: delete layer from database/image ////////////////////////////////
 pub async fn delete_layer( pool: &Pool, id: i32 ) -> Result< (), MyDbError > {
 
@@ -316,27 +447,33 @@ pub async fn delete_layer( pool: &Pool, id: i32 ) -> Result< (), MyDbError > {
     }
 }
 
-// TODO: pub async fn get_layers_by_image_id(pool: &Pool, image_id: i32) -> Result<Vec<Layer>, MyDbError>;
-// TODO: pub async fn update_layer_order(pool: &Pool, layer_id: i32, new_order: i32) -> Result<(), MyDbError>;
 // TODO: pub async fn toggle_layer_visibility(pool: &Pool, layer_id: i32, visible: bool) -> Result<(), MyDbError>;
 // TODO: pub async fn duplicate_layer(pool: &Pool, layer_id: i32) -> Result<i32, MyDbError>; // Returns new layer ID
 // TODO: pub async fn merge_layers(pool: &Pool, layer_ids: Vec<i32>) -> Result<i32, MyDbError>; // Returns new merged layer ID
 // TODO: pub async fn search_layers(pool: &Pool, search_query: &str) -> Result<Vec<Layer>, MyDbError>;
-// TODO: pub async fn get_layer_statistics(pool: &Pool) -> Result<LayerStatistics, MyDbError>;
 // TODO: pub async fn create_layer_group(pool: &Pool, group_name: &str, layer_ids: Vec<i32>) -> Result<i32, MyDbError>; // Returns group ID
 
+//////////////////////////////////////////////////////////////////////////////////
 //////////// ********** Analytics & Reports ********** ///////////////////////////
+//////////////////////////////////////////////////////////////////////////////////
+
 // user_activity_report: generate reports on user activity ///////////////////////
 // image_statistics: get statistics on image uploads, edits, etc. ////////////////
 
+//////////////////////////////////////////////////////////////////////////////////
 //////////// ********** DB Health & Maintenance********** ////////////////////////
+//////////////////////////////////////////////////////////////////////////////////
+
 // TODO: check_db_health: check database health ////////////////////////////////////////
 // TODO: backup_db: backup database ////////////////////////////////////////////////////
 // TODO: restore_db: restore database //////////////////////////////////////////////////
 // TODO: delete_db: delete database ////////////////////////////////////////////////////
 // TODO: clean_db: clean database, optimize, etc. //////////////////////////////////////
 
+//////////////////////////////////////////////////////////////////////////////////
 //////////// ********** User Deletion Fuctions ********** ////////////////////////
+//////////////////////////////////////////////////////////////////////////////////
+
 // Delete a user from the database ///////////////////////////////////////////////
 pub async fn delete_user(pool: &Pool, username: &str) -> Result<(), MyDbError> {
     let client = pool.get().await?;
@@ -353,7 +490,9 @@ pub async fn delete_user(pool: &Pool, username: &str) -> Result<(), MyDbError> {
     }
 }
 
+//////////////////////////////////////////////////////////////////////////////////
 //////////// ********** Error Handling ********** ////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////
 #[derive(Debug)]
 pub enum MyDbError {
     PostgresError(postgres::Error),
@@ -374,7 +513,10 @@ impl From<deadpool::managed::PoolError<postgres::Error>> for MyDbError {
     }
 }
 
+//////////////////////////////////////////////////////////////////////////////////
 //////////// ********** User Representation ********** ///////////////////////////
+//////////////////////////////////////////////////////////////////////////////////
+
 // Struct to represent a user ////////////////////////////////////////////////////
 #[derive(Debug, Serialize, Deserialize)]
 pub struct User {
@@ -396,7 +538,9 @@ impl User {
     }
 }
 
+//////////////////////////////////////////////////////////////////////////////////
 //////////// ********** Image Representation ********** //////////////////////////
+//////////////////////////////////////////////////////////////////////////////////
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Image {
     pub id: i32,
@@ -407,7 +551,9 @@ pub struct Image {
     // Add other fields TODO:
 }
 
+//////////////////////////////////////////////////////////////////////////////////
 //////////// ********** Layer Representation ********** //////////////////////////
+//////////////////////////////////////////////////////////////////////////////////
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Layer {
     pub id: i32,
@@ -419,18 +565,23 @@ pub struct Layer {
     pub layer_type: String,
     pub visibility: bool,
     pub opacity: f32,
-    pub layer_data: Vec<u8>,
+    pub layer_data: Vec<u8>, // Raw data for the layer
+    pub order: i32, // Maintain layer order!
     // Add other fields TODO:
 }
 
+//////////////////////////////////////////////////////////////////////////////////
 //////////// ********** Unit Tests ********** ////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////
 #[cfg(test)]
 mod tests {
     use super::*;
     use dotenv::dotenv;
     use std::env;
 
+    //////////////////////////////////////////////////////////////////////////////
     ///////////////////// ********** Setup ********** ////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////
     // Setup mock database connection
     fn setup() -> Pool {
         dotenv().ok(); // Load variables from .env file
@@ -444,7 +595,9 @@ mod tests {
         cfg.create_pool(None, NoTls).expect("Failed to create pool")
     }
 
+    //////////////////////////////////////////////////////////////////////////////
     ////////////////////// ********** User Tests ********** //////////////////////
+    //////////////////////////////////////////////////////////////////////////////
     mod user_tests {
         use super::*;
 
@@ -477,10 +630,21 @@ mod tests {
     }
     
     // TODO: 
+    //////////////////////////////////////////////////////////////////////////////
     ////////////////////// ********** Image Tests ********** /////////////////////
+    //////////////////////////////////////////////////////////////////////////////
+    
+    //////////////////////////////////////////////////////////////////////////////
     ////////////////////// ********** Layer Tests ********** /////////////////////
+    //////////////////////////////////////////////////////////////////////////////
+   
+    //////////////////////////////////////////////////////////////////////////////
     ////////////////////// ********** Session Tests ********** ///////////////////
+    //////////////////////////////////////////////////////////////////////////////
+    
+    //////////////////////////////////////////////////////////////////////////////
     ////////////////////// ********** Analytics Tests ********** /////////////////
+    //////////////////////////////////////////////////////////////////////////////
 
 
 }
