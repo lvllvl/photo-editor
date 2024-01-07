@@ -192,8 +192,6 @@ pub async fn update_user_email(
 //////////// ********** Session Management Functions ********** //////////////////
 //////////////////////////////////////////////////////////////////////////////////
 
-// QUEST: What do I need to know about creating sessions?
-// QUEST: What is basic UserExperience regarding a session?
 // create_session: for an individual /////////////////////////////////////////////
 pub async fn create_session( pool: &Pool, user_id: i32 ) -> Result< i32, MyDbError >{
 
@@ -815,6 +813,33 @@ impl Layer {
             opacity: row.get("opacity"),
             layer_data: row.get("layer_data"),
             order: row.get("order"),
+        }
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////////
+//////////// ********** Session Representation ********** ////////////////////////
+//////////////////////////////////////////////////////////////////////////////////
+#[ derive( Debug, Serialize, Deserialize )]
+pub struct Session {
+    pub id: i32,
+    pub user_id: i32,
+    pub creation_time: DateTime<Utc>,
+    pub expiration_time: DateTime<Utc>,
+    pub last_activity: DateTime<Utc>,
+    pub session_data: serde_json::Value,
+}
+
+impl Session {
+    // Function to create a session instance from a database row
+    pub fn from_row( row: &Row ) -> Session {
+        Session {
+            id: row.get( "id" ),
+            user_id: row.get( "user_id" ),
+            creation_time: row.get( "creation_time" ),
+            expiration_time: row.get( "expiration_time" ),
+            last_activity: row.get( "last_activity" ),
+            session_data: row.get( "session_data" )
         }
     }
 }
