@@ -194,14 +194,14 @@ pub async fn update_user_email(
 
 // QUEST: What do I need to know about creating sessions?
 // QUEST: What is basic UserExperience regarding a session?
-// TODO: create_session ////////////////////////////////////////////////////////////////
+// create_session: for an individual /////////////////////////////////////////////
 pub async fn create_session( pool: &Pool, user_id: i32 ) -> Result< i32, MyDbError >{
 
     let client = pool.get().await?;
     let mut creation_time = Utc::now();
-    let mut expiration_time = creation_time + Duration::hours(1); // Session length 
+    let mut expiration_time = creation_time + Duration::hours(1); // Max session length 
     let last_activity = creation_time;
-    let session_data = json!( {} ); // Initialize with empty JSON object, using serde_json
+    let session_data = json!( {} ); // Initialize with empty JSON object, using serde_json json! macro
 
     let statement = client
         .prepare( "INSERT INTO sessions (user_id, creation_time, expiration_time, last_activity, session_data ) VALUES ($1, $2, $3, $4, $5) RETURNING id" )
@@ -214,10 +214,53 @@ pub async fn create_session( pool: &Pool, user_id: i32 ) -> Result< i32, MyDbErr
 
     Ok( session_id )
 
-
 }
-// TODO: end_session ///////////////////////////////////////////////////////////////////
-// TODO: get_active_sessions ///////////////////////////////////////////////////////////
+
+// end_session: for an individual  ///////////////////////////////////////////////
+pub async fn end_session( pool: &Pool, user_id: i32 ) -> Result< (), MyDbError > {
+
+    // Fetch a database connection from the pool
+    let client = pool.get().await?;
+
+   // Prep the SQL query to update the session
+   let statement = client
+    .prepare( "UPDATE session SET end_time = NOW() WHERE id = $1" )
+    .await?;
+
+    // Execute the query
+    let result = client.execute( &statement, &[ &session_id ] ).await?;
+
+    // Check if any rows were affected
+    if result == 0 {
+        // No rows were updated, session not found or already ended
+        Err( Error::from( std::io::Error::new( std::io::ErrorKind::NotFound, "Session not found" )))
+    } else {
+        // Session succesfully ended 
+        Ok( () )
+    }
+}
+
+// get_active_sessions: for all current users ////////////////////////////////////
+pub async fn get_active_sessions( pool: &Pool, user_id: i32 ) -> Result< Vec< Session >, MyDbError > {
+
+    let client = pool.get().await?;
+    let statement = client
+        .prepare( "SELECT * FROM sessions WHERE user_id = $1 AND end_time IS NULL" )
+        .await?;
+    let rows = client.query( &statement, &[ &user_id ]).await?;
+    let mut sessions = Vec::new();
+
+    for row in rows {
+        // Session is a struct, that represents a single session
+        sessions.push( Session::from_row( &row ));
+    }
+
+    if sessions.is_empty() {
+        Err( MyDbError::NotFound )
+    } else {
+        Ok( sessions )
+    }
+}
 
 //////////////////////////////////////////////////////////////////////////////////
 //////////// ********** Image Management Functions ********** ////////////////////
