@@ -1,8 +1,10 @@
 use std::collections::HashMap;
-
+use chrono::{ Utc, Duration }; 
 use deadpool_postgres::{Config, Pool};
+use serde_json::json;
 use serde::{Deserialize, Serialize};
-use tokio_postgres::{Error, NoTls, Row};
+use tokio_postgres::{Error, NoTls, Row };
+use postgres::types::ToSql;
 
 //////////////////////////////////////////////////////////////////////////////////
 //////////// ********** DB Connection Management ********** ////////////////////////
@@ -17,7 +19,8 @@ pub fn create_pool() -> Pool {
 
 //////////// ********** Setup Database Schema ********** /////////////////////////
 pub async fn setup_database(client: &mut deadpool_postgres::Client) -> Result<(), Error> {
-    // Create User Table
+
+    // Create User Table ////////////////////////////////////////////////////////
     client
         .batch_execute(
             "
@@ -48,7 +51,7 @@ pub async fn setup_database(client: &mut deadpool_postgres::Client) -> Result<()
         .await?;
     println!("Sessions table created successfully.");
 
-    // Create Image Table
+    // Create Image Table ///////////////////////////////////////////////////////
     client
         .batch_execute(
             "
@@ -65,7 +68,7 @@ pub async fn setup_database(client: &mut deadpool_postgres::Client) -> Result<()
         .await?;
     println!("images table created successfully.");
 
-    // Create Layers Table
+    // Create Layers Table //////////////////////////////////////////////////////
     client
         .batch_execute(
             "
@@ -94,6 +97,7 @@ pub async fn setup_database(client: &mut deadpool_postgres::Client) -> Result<()
 //////////////////////////////////////////////////////////////////////////////////
 // ************* User Insertion Functions ************** /////////////////////////
 //////////////////////////////////////////////////////////////////////////////////
+
 // Add a user to the database ////////////////////////////////////////////////////
 pub async fn add_user(pool: &Pool, username: &str, email: &str) -> Result<(), MyDbError> {
     let client = pool.get().await?;
@@ -191,6 +195,27 @@ pub async fn update_user_email(
 // QUEST: What do I need to know about creating sessions?
 // QUEST: What is basic UserExperience regarding a session?
 // TODO: create_session ////////////////////////////////////////////////////////////////
+pub async fn create_session( pool: &Pool, user_id: i32 ) -> Result< i32, MyDbError >{
+
+    let client = pool.get().await?;
+    let mut creation_time = Utc::now();
+    let mut expiration_time = creation_time + Duration::hours(1); // Session length 
+    let last_activity = creation_time;
+    let session_data = json!( {} ); // Initialize with empty JSON object, using serde_json
+
+    let statement = client
+        .prepare( "INSERT INTO sessions (user_id, creation_time, expiration_time, last_activity, session_data ) VALUES ($1, $2, $3, $4, $5) RETURNING id" )
+        .await?;
+
+    let session_id: i32 = client
+        .query_one( &statement, &[&user_id, &creation_time, &expiration_time, &last_activity, &session_data] )
+        .await?
+        .get( 0 );
+
+    Ok( session_id )
+
+
+}
 // TODO: end_session ///////////////////////////////////////////////////////////////////
 // TODO: get_active_sessions ///////////////////////////////////////////////////////////
 
@@ -849,19 +874,19 @@ mod tests {
             // TODO: add other checks on the retrieved image
         }
 
-        #[tokio::tests]
-        async fn test_update_image() {
-            // similar setup and assertion as previous tests
-            // update the image details and verify changes 
+        // #[tokio::tests]
+        // async fn test_update_image() {
+        //     // similar setup and assertion as previous tests
+        //     // update the image details and verify changes 
 
-        }
+        // }
 
-        #[tokio::tests]
-        async fn test_delete_image() {
-            // similar setup and assertion as previous tests
-            // delete the image and verify it is NO LONGER retrievable 
+        // #[tokio::tests]
+        // async fn test_delete_image() {
+        //     // similar setup and assertion as previous tests
+        //     // delete the image and verify it is NO LONGER retrievable 
 
-        }
+        // }
     }
 
     //////////////////////////////////////////////////////////////////////////////
