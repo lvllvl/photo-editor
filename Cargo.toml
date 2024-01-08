@@ -12,7 +12,7 @@ dotenv = "0.15.0"
 actix-web = "4.4.0"
 deadpool-postgres = "0.12.1"
 tokio = { version = "1", features = ["full"] }
-tokio-postgres = { version = "0.7.10", features = [ "with-chrono" ]}
+tokio-postgres = { version = "^0.7.10", features = [ "with-chrono-0_4" ]}
 deadpool = "0.10.0"
 serde = { version = "1.0", features = ["derive"] }
 chrono = "0.4.31"

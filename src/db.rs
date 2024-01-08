@@ -260,6 +260,19 @@ pub async fn get_active_sessions( pool: &Pool, user_id: i32 ) -> Result< Vec< Se
     }
 }
 
+// get_session_ID for a SINGLE user //////////////////////////////////////////////
+pub async fn get_session_id_for_user( pool: &Pool, user_id: i32 ) -> Result< i32, MyDbError > {
+    let client = pool.get().await?;
+    let statement = client.prepare( "SELECT id FROM sessions WHERE user_id = $1" ).await?;
+
+    let rows = client.query( &statement, &[ &user_id ] ).await?;
+    if let Some( row ) = rows.into_iter().next() {
+        Ok( row.get( "id" ) )
+    } else {
+        Err( MyDbError::NotFound )
+    }
+} 
+
 //////////////////////////////////////////////////////////////////////////////////
 //////////// ********** Image Management Functions ********** ////////////////////
 //////////////////////////////////////////////////////////////////////////////////
