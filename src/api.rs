@@ -4,7 +4,6 @@
 // use crate::db::{ add_user, create_pool };
 use crate::db;
 use crate::db::*; // QUEST: Am I exposing all db.rs funcs by doing this?
-                  // use crate::db::{add_user, MyDbError};
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
 use deadpool_postgres::Pool;
 use serde::Deserialize;
@@ -13,10 +12,11 @@ use serde::Deserialize;
 ///////////////// ******* Function to start the server ******* ///////////////////
 //////////////////////////////////////////////////////////////////////////////////
 pub async fn start_server(pool: Pool) -> Result<(), MyError> {
+
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(pool.clone()))
-            .route("/", web::get().to(index))
+            .route("/", web::get().to(index ))
             .route("/add_user", web::post().to(add_user_handler))
             .route("/user/{username}", web::get().to(get_user_handler))
             .route("/user/{username}", web::delete().to(delete_user_handler))
@@ -28,6 +28,11 @@ pub async fn start_server(pool: Pool) -> Result<(), MyError> {
 
     Ok(())
 }
+/// Index handler
+async fn index() -> impl Responder {
+    HttpResponse::Ok().body( "Welcome to the API!" )
+}
+
 // Error Enum for server function ////////////////////////////////////////////////
 #[derive(Debug)]
 pub enum MyError {
@@ -121,9 +126,9 @@ async fn update_user_email_handler(
     path: web::Path<(String)>,
     new_email: String,
 ) -> HttpResponse {
-    let username = &path.into_inner().0;
+    let username = path.into_inner();
 
-    match db::update_user_email(&pool, username, &new_email).await {
+    match db::update_user_email(&pool, &username, &new_email).await {
         Ok(_) => HttpResponse::Ok().json("User email changed successfully"),
         Err(MyDbError::NotFound) => HttpResponse::NotFound().json("User not found"),
         Err(_) => HttpResponse::InternalServerError().json("Internal server error"),
@@ -170,7 +175,7 @@ async fn update_user_email_handler(
 ///
 async fn add_image_handler(
     pool: web::Data<Pool>,
-    path: web::Path< (String) >, // QUEST: is this parameter necessary? 
+    path: web::Path< String >, // QUEST: is this parameter necessary? 
     image_path: String,
     user_id: i32,
 ) -> HttpResponse {

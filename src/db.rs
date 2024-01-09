@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use chrono::{ Utc, Duration }; 
+use chrono::{ Utc, Duration, DateTime }; 
 use deadpool_postgres::{Config, Pool};
 use serde_json::json;
 use serde::{Deserialize, Serialize};
@@ -199,14 +199,16 @@ pub async fn create_session( pool: &Pool, user_id: i32 ) -> Result< i32, MyDbErr
     let mut creation_time = Utc::now();
     let mut expiration_time = creation_time + Duration::hours(1); // Max session length 
     let last_activity = creation_time;
+
     let session_data = json!( {} ); // Initialize with empty JSON object, using serde_json json! macro
+    let session_data_str = serde_json::to_string(&session_data)?;
 
     let statement = client
         .prepare( "INSERT INTO sessions (user_id, creation_time, expiration_time, last_activity, session_data ) VALUES ($1, $2, $3, $4, $5) RETURNING id" )
         .await?;
 
     let session_id: i32 = client
-        .query_one( &statement, &[&user_id, &creation_time, &expiration_time, &last_activity, &session_data] )
+        .query_one( &statement, &[&user_id, &creation_time, &expiration_time, &last_activity, &session_data_str ] )
         .await?
         .get( 0 );
 
@@ -225,13 +227,15 @@ pub async fn end_session( pool: &Pool, user_id: i32 ) -> Result< (), MyDbError >
     .prepare( "UPDATE session SET end_time = NOW() WHERE id = $1" )
     .await?;
 
+    let session_id = get_session_id_for_user( &pool, user_id ).await?;
+
     // Execute the query
     let result = client.execute( &statement, &[ &session_id ] ).await?;
 
     // Check if any rows were affected
     if result == 0 {
         // No rows were updated, session not found or already ended
-        Err( Error::from( std::io::Error::new( std::io::ErrorKind::NotFound, "Session not found" )))
+        Err( MyDbError::NotFound )
     } else {
         // Session succesfully ended 
         Ok( () )
@@ -710,7 +714,16 @@ pub enum MyDbError {
     PostgresError(postgres::Error),
     PoolError(deadpool::managed::PoolError<postgres::Error>),
     NotFound,
+    JsonError( String ),
     // ... other error types as needed
+}
+
+impl From< serde_json::Error > for MyDbError {
+
+    fn from( err: serde_json::Error ) -> MyDbError {
+
+        MyDbError::JsonError( err.to_string() )
+    }
 }
 
 impl From<postgres::Error> for MyDbError {
@@ -845,15 +858,20 @@ pub struct Session {
 
 impl Session {
     // Function to create a session instance from a database row
-    pub fn from_row( row: &Row ) -> Session {
-        Session {
+    pub fn from_row( row: &Row ) -> Result< Session, MyDbError > {
+
+        let session_data_str: String = row.get( "session_data" );
+        let session_data = serde_json::from_str( &session_data_str )
+            .map_err( |e| MyDbError::JsonError( e.to_string() ))?;
+
+        Ok( Session {
             id: row.get( "id" ),
             user_id: row.get( "user_id" ),
             creation_time: row.get( "creation_time" ),
             expiration_time: row.get( "expiration_time" ),
             last_activity: row.get( "last_activity" ),
-            session_data: row.get( "session_data" )
-        }
+            session_data
+        })
     }
 }
 
