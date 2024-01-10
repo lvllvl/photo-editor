@@ -1002,7 +1002,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn test_get_image_by_id() {
+        async fn test_get_image_by_id() -> Result<(), Box<dyn std::error::Error>> {
             let pool = setup();
             let (session_id, file_path) = setup_for_image_tests(&pool).await.unwrap();
 
@@ -1037,6 +1037,8 @@ mod tests {
             // Get the specific image that was MOST RECENTLY UPLOADED 
             let get_result = get_single_image(&pool, most_recent_image_id ).await;
             assert!(get_result.is_ok());
+
+            Ok(())
 
             // TODO: add other checks on the retrieved image
         }
