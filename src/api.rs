@@ -123,7 +123,7 @@ async fn delete_user_handler(pool: web::Data<Pool>, path: web::Path<(String,)>) 
 ///
 async fn update_user_email_handler(
     pool: web::Data<Pool>,
-    path: web::Path<(String)>,
+    path: web::Path<String>,
     new_email: String,
 ) -> HttpResponse {
     let username = path.into_inner();

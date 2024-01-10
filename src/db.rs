@@ -1,10 +1,10 @@
-use std::collections::HashMap;
-use chrono::{ Utc, Duration, DateTime }; 
+use chrono::{DateTime, Duration, Utc};
 use deadpool_postgres::{Config, Pool};
-use serde_json::json;
-use serde::{Deserialize, Serialize};
-use tokio_postgres::{Error, NoTls, Row };
 use postgres::types::ToSql;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
+use std::collections::HashMap;
+use tokio_postgres::{Error, NoTls, Row};
 
 //////////////////////////////////////////////////////////////////////////////////
 //////////// ********** DB Connection Management ********** ////////////////////////
@@ -19,7 +19,6 @@ pub fn create_pool() -> Pool {
 
 //////////// ********** Setup Database Schema ********** /////////////////////////
 pub async fn setup_database(client: &mut deadpool_postgres::Client) -> Result<(), Error> {
-
     // Create User Table ////////////////////////////////////////////////////////
     client
         .batch_execute(
@@ -99,13 +98,14 @@ pub async fn setup_database(client: &mut deadpool_postgres::Client) -> Result<()
 //////////////////////////////////////////////////////////////////////////////////
 
 // Add a user to the database ////////////////////////////////////////////////////
-pub async fn add_user(pool: &Pool, username: &str, email: &str) -> Result<(), MyDbError> {
+pub async fn add_user(pool: &Pool, username: &str, email: &str) -> Result<i32, MyDbError> {
     let client = pool.get().await?;
     let statement = client
         .prepare("INSERT INTO users (username, email) VALUES ($1, $2)")
         .await?;
-    client.execute(&statement, &[&username, &email]).await?;
-    Ok(())
+    let row = client.query_one(&statement, &[&username, &email]).await?;
+    let user_id: i32 = row.get(0);
+    Ok(user_id)
 }
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -193,14 +193,13 @@ pub async fn update_user_email(
 //////////////////////////////////////////////////////////////////////////////////
 
 // create_session: for an individual /////////////////////////////////////////////
-pub async fn create_session( pool: &Pool, user_id: i32 ) -> Result< i32, MyDbError >{
-
+pub async fn create_session(pool: &Pool, user_id: i32) -> Result<i32, MyDbError> {
     let client = pool.get().await?;
     let mut creation_time = Utc::now();
-    let mut expiration_time = creation_time + Duration::hours(1); // Max session length 
+    let mut expiration_time = creation_time + Duration::hours(1); // Max session length
     let last_activity = creation_time;
 
-    let session_data = json!( {} ); // Initialize with empty JSON object, using serde_json json! macro
+    let session_data = json!({}); // Initialize with empty JSON object, using serde_json json! macro
     let session_data_str = serde_json::to_string(&session_data)?;
 
     let statement = client
@@ -208,74 +207,95 @@ pub async fn create_session( pool: &Pool, user_id: i32 ) -> Result< i32, MyDbErr
         .await?;
 
     let session_id: i32 = client
-        .query_one( &statement, &[&user_id, &creation_time, &expiration_time, &last_activity, &session_data_str ] )
+        .query_one(
+            &statement,
+            &[
+                &user_id,
+                &creation_time,
+                &expiration_time,
+                &last_activity,
+                &session_data_str,
+            ],
+        )
         .await?
-        .get( 0 );
+        .get(0);
 
-    Ok( session_id )
-
+    Ok(session_id)
 }
 
 // end_session: for an individual  ///////////////////////////////////////////////
-pub async fn end_session( pool: &Pool, user_id: i32 ) -> Result< (), MyDbError > {
-
+pub async fn end_session(pool: &Pool, user_id: i32) -> Result<(), MyDbError> {
     // Fetch a database connection from the pool
     let client = pool.get().await?;
 
-   // Prep the SQL query to update the session
-   let statement = client
-    .prepare( "UPDATE session SET end_time = NOW() WHERE id = $1" )
-    .await?;
+    // Prep the SQL query to update the session
+    let statement = client
+        .prepare("UPDATE session SET end_time = NOW() WHERE id = $1")
+        .await?;
 
-    let session_id = get_session_id_for_user( &pool, user_id ).await?;
+    let session_id = get_session_id_for_user(&pool, user_id).await?;
 
     // Execute the query
-    let result = client.execute( &statement, &[ &session_id ] ).await?;
+    let result = client.execute(&statement, &[&session_id]).await?;
 
     // Check if any rows were affected
     if result == 0 {
         // No rows were updated, session not found or already ended
-        Err( MyDbError::NotFound )
+        Err(MyDbError::NotFound)
     } else {
-        // Session succesfully ended 
-        Ok( () )
+        // Session succesfully ended
+        Ok(())
+    }
+}
+
+/// Get a user_id ( i32 ) by providing the session_id (i32) 
+pub async fn get_user_id_by_session_id( pool: &Pool, session_id: i32 ) -> Result< i32, MyDbError > {
+    let client = pool.get().await?;
+    let statement = client.prepare( "SELECT user_id FROM sessions WHERE id = $1" ).await?;
+    let rows = client.query( &statement,  &[ &session_id ] ).await?;
+
+    if let Some( row ) = rows.into_iter().next() {
+        Ok( row.get( "user_id" ))
+    } else {
+        Err( MyDbError::NotFound )
     }
 }
 
 // get_active_sessions: for all current users ////////////////////////////////////
-pub async fn get_active_sessions( pool: &Pool, user_id: i32 ) -> Result< Vec< Session >, MyDbError > {
-
+pub async fn get_active_sessions(pool: &Pool) -> Result<Vec<Session>, MyDbError> {
     let client = pool.get().await?;
     let statement = client
-        .prepare( "SELECT * FROM sessions WHERE user_id = $1 AND end_time IS NULL" )
+        .prepare("SELECT * FROM sessions WHERE end_time IS NULL")
         .await?;
-    let rows = client.query( &statement, &[ &user_id ]).await?;
+    let rows = client.query(&statement, &[]).await?;
     let mut sessions = Vec::new();
 
     for row in rows {
         // Session is a struct, that represents a single session
-        sessions.push( Session::from_row( &row ));
+        sessions.push(Session::from_row(&row)?);
     }
 
     if sessions.is_empty() {
-        Err( MyDbError::NotFound )
+        Err(MyDbError::NotFound)
     } else {
-        Ok( sessions )
+        Ok(sessions)
     }
 }
 
 // get_session_ID for a SINGLE user //////////////////////////////////////////////
-pub async fn get_session_id_for_user( pool: &Pool, user_id: i32 ) -> Result< i32, MyDbError > {
+pub async fn get_session_id_for_user(pool: &Pool, user_id: i32) -> Result<i32, MyDbError> {
     let client = pool.get().await?;
-    let statement = client.prepare( "SELECT id FROM sessions WHERE user_id = $1" ).await?;
+    let statement = client
+        .prepare("SELECT id FROM sessions WHERE user_id = $1")
+        .await?;
 
-    let rows = client.query( &statement, &[ &user_id ] ).await?;
-    if let Some( row ) = rows.into_iter().next() {
-        Ok( row.get( "id" ) )
+    let rows = client.query(&statement, &[&user_id]).await?;
+    if let Some(row) = rows.into_iter().next() {
+        Ok(row.get("id"))
     } else {
-        Err( MyDbError::NotFound )
+        Err(MyDbError::NotFound)
     }
-} 
+}
 
 //////////////////////////////////////////////////////////////////////////////////
 //////////// ********** Image Management Functions ********** ////////////////////
@@ -293,11 +313,38 @@ pub async fn add_image(pool: &Pool, session_id: i32, file_path: &str) -> Result<
     Ok(())
 }
 
-// get_image: get image by id ////////////////////////////////////////////////////
-pub async fn get_image(pool: &Pool, id: i32) -> Result<Image, MyDbError> {
+// get_all_images: all images associated with a user_id ///////////////////////////////
+pub async fn get_all_images(pool: &Pool, user_id: i32) -> Result<Vec< Image >, MyDbError> {
+
     let client = pool.get().await?;
-    let statement = client.prepare("SELECT * FROM images WHERE id = $1").await?;
-    let rows = client.query(&statement, &[&id]).await?;
+    let statement = client.prepare("SELECT * FROM images WHERE user_id = $1").await?;
+    let rows = client.query(&statement, &[&user_id]).await?;
+
+    let mut images = Vec::new();
+    for row in rows {
+        let image = Image {
+            id: row.get("id"),
+            session_id: row.get("session_id"),
+            file_path: row.get("file_path"),
+            created_at: row.get("created_at"),
+            updated_at: row.get("updated_at"),
+        };
+        images.push(image); 
+    }
+
+    if images.is_empty() {
+        Err( MyDbError::NotFound )
+    } else {
+        Ok( images )
+    }
+}
+
+// get_single_image: a single image by image_ID ///////////////////////////////
+pub async fn get_single_image(pool: &Pool, image_id: i32) -> Result<Image, MyDbError> {
+
+    let client = pool.get().await?;
+    let statement = client.prepare("SELECT * FROM images WHERE image_id = $1").await?;
+    let rows = client.query(&statement, &[&image_id ]).await?;
     if let Some(row) = rows.into_iter().next() {
         Ok(Image {
             id: row.get("id"),
@@ -714,15 +761,13 @@ pub enum MyDbError {
     PostgresError(postgres::Error),
     PoolError(deadpool::managed::PoolError<postgres::Error>),
     NotFound,
-    JsonError( String ),
+    JsonError(String),
     // ... other error types as needed
 }
 
-impl From< serde_json::Error > for MyDbError {
-
-    fn from( err: serde_json::Error ) -> MyDbError {
-
-        MyDbError::JsonError( err.to_string() )
+impl From<serde_json::Error> for MyDbError {
+    fn from(err: serde_json::Error) -> MyDbError {
+        MyDbError::JsonError(err.to_string())
     }
 }
 
@@ -846,7 +891,7 @@ impl Layer {
 //////////////////////////////////////////////////////////////////////////////////
 //////////// ********** Session Representation ********** ////////////////////////
 //////////////////////////////////////////////////////////////////////////////////
-#[ derive( Debug, Serialize, Deserialize )]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Session {
     pub id: i32,
     pub user_id: i32,
@@ -858,19 +903,18 @@ pub struct Session {
 
 impl Session {
     // Function to create a session instance from a database row
-    pub fn from_row( row: &Row ) -> Result< Session, MyDbError > {
+    pub fn from_row(row: &Row) -> Result<Session, MyDbError> {
+        let session_data_str: String = row.get("session_data");
+        let session_data = serde_json::from_str(&session_data_str)
+            .map_err(|e| MyDbError::JsonError(e.to_string()))?;
 
-        let session_data_str: String = row.get( "session_data" );
-        let session_data = serde_json::from_str( &session_data_str )
-            .map_err( |e| MyDbError::JsonError( e.to_string() ))?;
-
-        Ok( Session {
-            id: row.get( "id" ),
-            user_id: row.get( "user_id" ),
-            creation_time: row.get( "creation_time" ),
-            expiration_time: row.get( "expiration_time" ),
-            last_activity: row.get( "last_activity" ),
-            session_data
+        Ok(Session {
+            id: row.get("id"),
+            user_id: row.get("user_id"),
+            creation_time: row.get("creation_time"),
+            expiration_time: row.get("expiration_time"),
+            last_activity: row.get("last_activity"),
+            session_data,
         })
     }
 }
@@ -962,12 +1006,36 @@ mod tests {
             let pool = setup();
             let (session_id, file_path) = setup_for_image_tests(&pool).await.unwrap();
 
+            // Upload an image to the database 
             let add_result = add_image(&pool, session_id, &file_path).await;
+            // Test: Make sure the result is ok
             assert!(add_result.is_ok());
 
             // Retreieve the added image
-            // TODO: let image_id = /* get the ID of the newly added image */
-            let get_result = get_image(&pool, image_id).await;
+            // 
+            let user_id = get_user_id_by_session_id(&pool, session_id).await?; 
+            let images: Vec<Image> = get_all_images(&pool, user_id).await?;
+
+            // For loop through all images, find the most recent one
+            let mut most_recent_image: Option< Image > = None;
+            for img in images {
+                match &most_recent_image {
+                    None => most_recent_image = Some( img ),
+                    Some( current_most_recent ) => {
+                        if img.created_at > current_most_recent.created_at {
+                            most_recent_image = Some( img );
+                        }
+                    }
+                }
+            }
+            // Get the most recent image id
+            let most_recent_image_id = most_recent_image
+                .map( | img | img.id )
+                .expect( "No images found" ); 
+            // Now we have the ID of the most recently created image, you can also use the get_single_image function
+            let image_id = get_single_image(&pool, user_id).await;
+            // Get the specific image that was MOST RECENTLY UPLOADED 
+            let get_result = get_single_image(&pool, most_recent_image_id ).await;
             assert!(get_result.is_ok());
 
             // TODO: add other checks on the retrieved image
@@ -976,14 +1044,14 @@ mod tests {
         // #[tokio::tests]
         // async fn test_update_image() {
         //     // similar setup and assertion as previous tests
-        //     // update the image details and verify changes 
+        //     // update the image details and verify changes
 
         // }
 
         // #[tokio::tests]
         // async fn test_delete_image() {
         //     // similar setup and assertion as previous tests
-        //     // delete the image and verify it is NO LONGER retrievable 
+        //     // delete the image and verify it is NO LONGER retrievable
 
         // }
     }
