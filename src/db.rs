@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
 use tokio_postgres::{Error, NoTls, Row};
+use std::fmt;
 
 //////////////////////////////////////////////////////////////////////////////////
 //////////// ********** DB Connection Management ********** ////////////////////////
@@ -780,6 +781,14 @@ impl From<postgres::Error> for MyDbError {
 impl From<deadpool::managed::PoolError<postgres::Error>> for MyDbError {
     fn from(err: deadpool::managed::PoolError<postgres::Error>) -> MyDbError {
         MyDbError::PoolError(err)
+    }
+
+}
+
+impl std::error::Error for MyDbError {}
+impl fmt::Display for MyDbError {
+    fn fmt( &self, f: &mut fmt::Formatter< '_> ) -> fmt::Result {
+        write!( f, "Database error: {:?}", self )
     }
 }
 
