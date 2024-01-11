@@ -209,3 +209,19 @@ async fn add_image_handler(
 // Get layer by layer_id
 // Update layer
 // Delete layer
+#[cfg(test)]
+mod tests{
+    use super::*;
+    use dotenv::dotenv;
+    use std::env;
+
+    mod user_tests {
+    }
+    
+    mod sessions_tests {
+    }
+    
+    mod image_tests {
+    }
+
+}
