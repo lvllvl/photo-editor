@@ -196,23 +196,28 @@ async fn add_image_handler(
     }
 }
 
-// Get_image
-// Get all iamges 
-async fn get_all_images_handler( pool: web::Data<Pool>, path: web::Path<String> ) -> HttpResponse {
+// TODO: Get_image
+async fn get_single_image_handler( pool: web::Data<Pool>, path: web::Path<String>, image_id: i32 ) -> HttpResponse {
 
+    match db::get_single_image( &pool, image_id).await {
+        Ok( _ ) => HttpResponse::Ok().json( "Image retrieved!" ),
+        Err( MyDbError::NotFound ) => HttpResponse::NotFound().json( "Image not found."),
+        Err( _ ) => HttpResponse::InternalServerError().json( "Internal server error" ),
+    }
 }
-// async fn get_user_handler(pool: web::Data<Pool>, path: web::Path<(String,)>) -> HttpResponse {
-//     let username = &path.into_inner().0;
+// Get all iamges 
+async fn get_all_images_handler( pool: web::Data<Pool>, path: web::Path<String>, user_id: i32 ) -> HttpResponse {
+    // FIXME: !!!! you need the user-id somehow !!!
+    // get user-ID, should it be a parameter? 
+    // Or should I use the get_userID_via_session fucntion?
 
-//     match pool.get().await {
-//         Ok(mut client) => match db::get_user_by_username(&mut client, username).await {
-//             Ok(user) => HttpResponse::Ok().json(user),
-//             Err(MyDbError::NotFound) => HttpResponse::NotFound().finish(),
-//             Err(_) => HttpResponse::InternalServerError().finish(),
-//         },
-//         Err(_) => HttpResponse::InternalServerError().finish(),
-//     }
-// }
+    match db::get_all_images( &pool, user_id ).await {
+        Ok( _ ) => HttpResponse::Ok().json( "All images retrieved successfully."),
+        Err( MyDbError::NotFound ) => HttpResponse::NotFound().json( "Images NOT found." ),
+        Err( _ ) => HttpResponse::InternalServerError().json( "Internal server error!" ),
+    }
+}
+
 // Get a single image
 // Update image
 // Delete image
