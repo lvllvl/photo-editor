@@ -142,8 +142,9 @@ async fn update_user_email_handler(
 /// Create_session
 /// To start a new user session upon login
 
-/// End_session 
-/// To allow users to log out.
+/// End_session
+/// To allow users to log out OR just end the session after a certain amount of
+/// time OR end session after a certain amount of inactivity.
 
 /// Get_active_sessions 
 /// To retrieve active sessions, useful for administrative purposes. 
@@ -153,7 +154,7 @@ async fn update_user_email_handler(
 ////////////// *****  Image Route Handler Functions ***** ////////////////////////
 //////////////////////////////////////////////////////////////////////////////////
 
-/// Add image
+/// ADD IMAGE HANDLER  
 /// To allow users to upload an image. This function expect the username to ID
 /// the user adn the path of the image to be uploaded. 
 ///
@@ -197,6 +198,7 @@ async fn add_image_handler(
 }
 
 // TODO: Get_image
+// QUEST: should this return a vector instead of HttpResonse?
 async fn get_single_image_handler( pool: web::Data<Pool>, path: web::Path<String>, image_id: i32 ) -> HttpResponse {
 
     match db::get_single_image( &pool, image_id).await {
@@ -205,12 +207,12 @@ async fn get_single_image_handler( pool: web::Data<Pool>, path: web::Path<String
         Err( _ ) => HttpResponse::InternalServerError().json( "Internal server error" ),
     }
 }
+
 // Get all iamges 
 async fn get_all_images_handler( pool: web::Data<Pool>, path: web::Path<String>, user_id: i32 ) -> HttpResponse {
     // FIXME: !!!! you need the user-id somehow !!!
     // get user-ID, should it be a parameter? 
     // Or should I use the get_userID_via_session fucntion?
-
     match db::get_all_images( &pool, user_id ).await {
         Ok( _ ) => HttpResponse::Ok().json( "All images retrieved successfully."),
         Err( MyDbError::NotFound ) => HttpResponse::NotFound().json( "Images NOT found." ),
@@ -218,8 +220,23 @@ async fn get_all_images_handler( pool: web::Data<Pool>, path: web::Path<String>,
     }
 }
 
-// Get a single image
-// Update image
+// Update image's file path
+// TODO: what other updates would take place? Adjust this fucntion to reflect that
+// e.g., any image change
+async fn update_image_handler(
+    pool: web::Data< Pool >,
+    path: web::Path<String>,
+    image_id: i32,
+    new_image_path: String,
+) -> HttpResponse {
+
+    match db::update_image( &pool, image_id, &new_image_path ).await {
+        Ok( _ ) => HttpResponse::Ok().json( "Image path has been updated." ),
+        Err( MyDbError::NotFound ) => HttpResponse::NotFound().json( "Image NOT found."),
+        Err( _ ) => HttpResponse::InternalServerError().json( "Internal server error! Oh no." ), 
+    }
+}
+
 // Delete image
 
 //////////////////////////////////////////////////////////////////////////////////
