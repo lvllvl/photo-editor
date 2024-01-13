@@ -181,7 +181,6 @@ async fn add_image_handler(
 ) -> HttpResponse {
 
     // let username: &str = &path.into_inner();
-
     // Fetch session ID
     let session_id = match db::get_session_id_for_user( &pool, user_id ).await {
         Ok( id ) => id, 
@@ -197,13 +196,26 @@ async fn add_image_handler(
     }
 }
 
-// Get all images handler 
-async fn get_all_images_handler( pool: web::Data<Pool>, path: web::Path<Path> ) -> HttpResponse {
-    
+// Get_image
+// Get all iamges 
+async fn get_all_images_handler( pool: web::Data<Pool>, path: web::Path<String> ) -> HttpResponse {
+
 }
-// Get a single image 
-// Update a single image
-// Delete a single image
+// async fn get_user_handler(pool: web::Data<Pool>, path: web::Path<(String,)>) -> HttpResponse {
+//     let username = &path.into_inner().0;
+
+//     match pool.get().await {
+//         Ok(mut client) => match db::get_user_by_username(&mut client, username).await {
+//             Ok(user) => HttpResponse::Ok().json(user),
+//             Err(MyDbError::NotFound) => HttpResponse::NotFound().finish(),
+//             Err(_) => HttpResponse::InternalServerError().finish(),
+//         },
+//         Err(_) => HttpResponse::InternalServerError().finish(),
+//     }
+// }
+// Get a single image
+// Update image
+// Delete image
 
 //////////////////////////////////////////////////////////////////////////////////
 ////////////// *****  Layer Route Handler Functions ***** ////////////////////////
@@ -213,6 +225,7 @@ async fn get_all_images_handler( pool: web::Data<Pool>, path: web::Path<Path> ) 
 // Get layer by layer_id
 // Update layer
 // Delete layer
+
 #[cfg(test)]
 mod tests{
     use super::*;
