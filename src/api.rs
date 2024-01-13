@@ -197,9 +197,13 @@ async fn add_image_handler(
     }
 }
 
-// Get_image
-// Update image
-// Delete image
+// Get all images handler 
+async fn get_all_images_handler( pool: web::Data<Pool>, path: web::Path<Path> ) -> HttpResponse {
+    
+}
+// Get a single image 
+// Update a single image
+// Delete a single image
 
 //////////////////////////////////////////////////////////////////////////////////
 ////////////// *****  Layer Route Handler Functions ***** ////////////////////////
