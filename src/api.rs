@@ -208,7 +208,7 @@ async fn get_single_image_handler( pool: web::Data<Pool>, path: web::Path<String
     }
 }
 
-// Get all iamges 
+/// Get all iamges 
 async fn get_all_images_handler( pool: web::Data<Pool>, path: web::Path<String>, user_id: i32 ) -> HttpResponse {
     // FIXME: !!!! you need the user-id somehow !!!
     // get user-ID, should it be a parameter? 
@@ -240,9 +240,11 @@ async fn update_image_handler(
 /// Delete image: Take an image within the database and delete it.
 async fn delete_image_handler(
     pool: web::Data< Pool >,
-    path: web::Path< String >,
-    image_id: i32,
+    image_id: web::Path<( i32 )>,
+
 ) -> HttpResponse {
+    let image_id = image_id.into_inner();
+    // Add authorization and validation logic stuff here
 
     match db::delete_image( &pool, image_id ).await {
         Ok( _ ) => HttpResponse::Ok().json( "Image was deleted successfully!" ),
