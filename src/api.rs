@@ -247,7 +247,7 @@ async fn delete_image_handler(
     // Add authorization and validation logic stuff here
 
     match db::delete_image( &pool, image_id ).await {
-        Ok( _ ) => HttpResponse::Ok().json( "Image was deleted successfully!" ),
+        Ok( _ ) => HttpResponse::Ok().json( format!( "Image with ID {} was deleted succesfully!", image_id.to_string() )),
         Err( MyDbError::NotFound ) => HttpResponse::NotFound().json("Image NOT found!" ),
         Err( _ ) => HttpResponse::InternalServerError().json("Internal Server Error!" ),
     }
