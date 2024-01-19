@@ -4,8 +4,9 @@
 // use crate::db::{ add_user, create_pool };
 use crate::db;
 use crate::db::*; // QUEST: Am I exposing all db.rs funcs by doing this?
+use deadpool_postgres::{Config, Pool};
+use tokio_postgres::{Error, NoTls, Row};
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
-use deadpool_postgres::Pool;
 use serde::Deserialize;
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -288,14 +289,95 @@ mod tests{
     use super::*;
     use dotenv::dotenv;
     use std::env;
+    
+    //////////////////////////////////////////////////////////////////////////////
+    ///////////////////// ********** Setup ********** ////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////
 
+   // Test user struct 
+    struct TestUser {
+        username: String,
+        email: String,
+        user_id: i32,
+    }
+    impl TestUser {
+
+        // Create a new user
+        async fn create( pool: &Pool ) -> Result< Self, MyDbError > {
+            let username = format!( "user_{}", rand::random::<u32>());
+            let email = format!( "{}@example.com", username );
+            let user_id = add_user( pool, &username, &email ).await?;
+            Ok( TestUser { username, email, user_id })
+        }
+        
+        // Cleanup test user
+        async fn cleanup( self, pool: &Pool ) -> Result< (), MyDbError > {
+            delete_user( pool, &self.username ).await?;
+            Ok(())
+        }
+    } 
+    
+    // Setup mock database connection
+    fn setup() -> Pool {
+        dotenv().ok(); // Load variables from .env file
+        let mut cfg = Config::new();
+
+        cfg.host = env::var("DB_HOST").ok();
+        cfg.user = env::var("DB_USER").ok();
+        cfg.password = env::var("DB_PASSWORD").ok();
+        cfg.dbname = env::var("DB_NAME").ok();
+
+        cfg.create_pool(None, NoTls).expect("Failed to create pool")
+    }
+
+    async fn create_test_session( pool: &Pool, user_id: i32 ) -> Result< i32, MyDbError > {
+        db::create_session( pool, user_id ).await 
+    }
+    
+    async fn create_test_user( pool: &Pool ) -> Result<i32, MyDbError> {
+        let username = format!("user_{}", rand::random::<u32>());
+        let email = format!("{}@example.com", username);
+        add_user(pool, &username, &email).await
+    }
+
+// pub async fn add_image(pool: &Pool, session_id: i32, file_path: &str) -> Result<(), MyDbError> {
+    async fn upload_test_image( pool: &Pool, session_id: i32 ) -> Result< i32, MyDbError > {
+        let file_path = "./tests/images/testImage.png";
+        db::add_image( pool, session_id, file_path  ).await
+    }
+
+
+    //////////////////////////////////////////////////////////////////////////////
+    ///////////////////// ********** User Tests ********** ///////////////////////
+    //////////////////////////////////////////////////////////////////////////////
     mod user_tests {
     }
     
+    //////////////////////////////////////////////////////////////////////////////
+    ///////////////////// ********** Session Tests ********** ////////////////////
+    //////////////////////////////////////////////////////////////////////////////
     mod sessions_tests {
     }
     
+    //////////////////////////////////////////////////////////////////////////////
+    ///////////////////// ********** Image Tests ********** //////////////////////
+    //////////////////////////////////////////////////////////////////////////////
     mod image_tests {
+        use super::*;
+
+        #[tokio::test]
+        async fn test_add_image_handler() {
+            let pool = setup();
+
+            let test_user = TestUser::create( &pool ).await.unwrap();
+            let session_id = create_test_session( &pool, test_user.user_id ).await.unwrap(); // create a test session
+            // Setup test data
+            let file_path = "./tests/images/testImage.png";
+            let result = add_image( &pool, session_id, file_path ).await;
+
+            assert!( result.is_ok() );
+            test_user.cleanup(&pool).await.unwrap();
+        }
     }
 
 }

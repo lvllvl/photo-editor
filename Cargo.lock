@@ -1138,6 +1138,7 @@ dependencies = [
  "dotenv",
  "image",
  "postgres",
+ "rand",
  "serde",
  "serde_json",
  "tokio",

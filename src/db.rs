@@ -303,15 +303,18 @@ pub async fn get_session_id_for_user(pool: &Pool, user_id: i32) -> Result<i32, M
 //////////////////////////////////////////////////////////////////////////////////
 
 // add_image: add new image to database //////////////////////////////////////////
-pub async fn add_image(pool: &Pool, session_id: i32, file_path: &str) -> Result<(), MyDbError> {
+pub async fn add_image(pool: &Pool, session_id: i32, file_path: &str) -> Result< i32, MyDbError> {
+
     let client = pool.get().await?;
     let statement = client
         .prepare( "INSERT INTO images (session_id, file_path, created_at, updated_at) VALUES ($1, $2, NOW(), NOW())")
         .await?;
-    client
-        .execute(&statement, &[&session_id, &file_path])
+
+    let row = client
+        .query_one( &statement, &[ &session_id, &file_path ] )
         .await?;
-    Ok(())
+    let image_id: i32 = row.get(0);
+    Ok( image_id )
 }
 
 // get_all_images: all images associated with a user_id ///////////////////////////////
