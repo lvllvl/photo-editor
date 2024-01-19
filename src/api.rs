@@ -176,46 +176,43 @@ async fn update_user_email_handler(
 ///
 async fn add_image_handler(
     pool: web::Data<Pool>,
-    path: web::Path< String >, // QUEST: is this parameter necessary? 
     image_path: String,
     user_id: i32,
 ) -> HttpResponse {
 
-    // let username: &str = &path.into_inner();
     // Fetch session ID
     let session_id = match db::get_session_id_for_user( &pool, user_id ).await {
         Ok( id ) => id, 
-        Err( _ ) => return HttpResponse::InternalServerError().json( "Error fetching session ID" ),
+        Err( _ ) => return HttpResponse::InternalServerError().json( "Error fetching session ID or User not found." ),
     };
 
     // Call the associated function from db.rs
     match db::add_image( &pool, session_id, &image_path ).await {
 
-        Ok( _ ) => HttpResponse::Ok().json( "Image added successfully" ),
-        Err( MyDbError::NotFound ) => HttpResponse::NotFound().json( "User not found" ),
+        Ok( image_id ) => HttpResponse::Ok().json( format!( "Image added successfully with ID: {:?}", image_id )),
         Err( _ ) => HttpResponse::InternalServerError().json( "Internal server error" ),
     }
 }
 
 // TODO: Get_image
 // QUEST: should this return a vector instead of HttpResonse?
-async fn get_single_image_handler( pool: web::Data<Pool>, path: web::Path<String>, image_id: i32 ) -> HttpResponse {
+async fn get_single_image_handler( pool: web::Data<Pool>, image_id: i32 ) -> HttpResponse {
 
     match db::get_single_image( &pool, image_id).await {
-        Ok( _ ) => HttpResponse::Ok().json( "Image retrieved!" ),
+        Ok( image ) => HttpResponse::Ok().json( image ), // Return the image data
         Err( MyDbError::NotFound ) => HttpResponse::NotFound().json( "Image not found."),
         Err( _ ) => HttpResponse::InternalServerError().json( "Internal server error" ),
     }
 }
 
 /// Get all iamges 
-async fn get_all_images_handler( pool: web::Data<Pool>, path: web::Path<String>, user_id: i32 ) -> HttpResponse {
-    // FIXME: !!!! you need the user-id somehow !!!
-    // get user-ID, should it be a parameter? 
-    // Or should I use the get_userID_via_session fucntion?
+async fn get_all_images_handler( pool: web::Data<Pool>, user_id: i32 ) -> HttpResponse {
+
+    // FIXME: Assuming user_id is extracted from authenticated session 
+    
     match db::get_all_images( &pool, user_id ).await {
-        Ok( _ ) => HttpResponse::Ok().json( "All images retrieved successfully."),
-        Err( MyDbError::NotFound ) => HttpResponse::NotFound().json( "Images NOT found." ),
+        Ok( images ) => HttpResponse::Ok().json( images ), // Return the actual images
+        Err( MyDbError::NotFound ) => HttpResponse::NotFound().json( "No images found for this user." ),
         Err( _ ) => HttpResponse::InternalServerError().json( "Internal server error!" ),
     }
 }
@@ -267,13 +264,11 @@ async fn add_layer_handler(
     layer_data: &[ u8 ],
     order: i32,
  ) -> HttpResponse {
-    
     match db::add_layer( &pool, image_id, layer_name, layer_type, layer_data, order ).await {
         Ok( _ ) => HttpResponse::Ok().json( "Image Layer was added successfully!" ),
         Err( MyDbError::NotFound ) => HttpResponse::NotFound().json("Layer not added!" ),
         Err( _ ) => HttpResponse::InternalServerError().json("Internal Server Error!" ),
     }
-
  }
 
 
