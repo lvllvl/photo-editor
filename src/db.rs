@@ -312,7 +312,7 @@ pub async fn get_session_id_for_user(pool: &Pool, user_id: i32) -> Result<i32, M
 pub async fn add_image(pool: &Pool, session_id: i32, file_path: &str) -> Result<i32, MyDbError> {
     let client = pool.get().await?;
     let statement = client
-        .prepare("INSERT INTO images (session_id, file_path, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) RETURNING id")
+        .prepare("INSERT INTO images (session_id, file_path, created_at, updated_at) VALUES ( $1, $2, NOW(), NOW() ) RETURNING id")
         .await?;
 
     let row = client
@@ -948,16 +948,58 @@ mod tests {
     //////////////////////////////////////////////////////////////////////////////
     ///////////////////// ********** Setup ********** ////////////////////////////
     //////////////////////////////////////////////////////////////////////////////
-    // Setup mock database connection
+    struct TestUser {
+        username: String,
+        email: String,
+        user_id: i32,
+    }
+    impl TestUser {
+
+        // Create a new user
+        async fn create( pool: &Pool ) -> Result< Self, MyDbError > {
+            let username = format!( "user_{}", rand::random::<u32>());
+            let email = format!( "{}@example.com", username );
+            let user_id = add_user( pool, &username, &email ).await?;
+            Ok( TestUser { username, email, user_id })
+        }
+        
+        // Cleanup test user
+        async fn cleanup( self, pool: &Pool ) -> Result< (), MyDbError > {
+            delete_user( pool, &self.username ).await?;
+            Ok(())
+        }
+    } 
+    
+    /// Create a session for the test user
+    async fn create_test_session( pool: &Pool, user_id: i32 ) -> Result< i32, MyDbError > {
+        create_session( pool, user_id ).await 
+    }
+
+    /// Create a test user for testing purposes 
+    async fn create_test_user( pool: &Pool ) -> Result<i32, MyDbError> {
+        let username = format!("user_{}", rand::random::<u32>());
+        let email = format!("{}@example.com", username);
+        add_user(pool, &username, &email).await
+    }
+
+    /// Create a test session for testing purposes
+    async fn upload_test_image( pool: &Pool, session_id: i32 ) -> Result< i32, MyDbError > {
+        let file_path = "./tests/images/testImage.png";
+        add_image( pool, session_id, file_path  ).await
+    }
+
+    /// Setup mock database connection
     fn setup() -> Pool {
         dotenv().ok(); // Load variables from .env file
         let mut cfg = Config::new();
 
+        // Setup the database connection
         cfg.host = env::var("DB_HOST").ok();
         cfg.user = env::var("DB_USER").ok();
         cfg.password = env::var("DB_PASSWORD").ok();
         cfg.dbname = env::var("DB_NAME").ok();
         cfg.create_pool(None, NoTls).expect("Failed to create pool")
+
     }
 
     //////////////////////////////////////////////////////////////////////////////
@@ -968,8 +1010,12 @@ mod tests {
 
         #[tokio::test]
         async fn test_add_user() {
+
             let pool = setup();
-            match add_user(&pool, "test_user", "test@example.com").await {
+            let username = format!("user_{}", rand::random::<u32>());
+            let email = format!("{}@example.com", username);
+
+            match add_user(&pool, &username, &email ).await {
                 Ok(_) => println!("Test add_user: User added successfully"),
                 Err(e) => eprintln!("Test add_user failed: {:?}", e),
             }
