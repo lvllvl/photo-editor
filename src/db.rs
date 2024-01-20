@@ -1006,32 +1006,39 @@ mod tests {
     ////////////////////// ********** User Tests ********** //////////////////////
     //////////////////////////////////////////////////////////////////////////////
     mod user_tests {
+        use actix_web::test;
+
         use super::*;
 
         #[tokio::test]
         async fn test_add_user() {
 
             let pool = setup();
-            let username = format!("user_{}", rand::random::<u32>());
-            let email = format!("{}@example.com", username);
-
-            match add_user(&pool, &username, &email ).await {
-                Ok(_) => println!("Test add_user: User added successfully"),
+            // Create a test user
+            match TestUser::create( &pool ).await {
+                Ok( test_user ) => {
+                    println!("Test add_user: User added successfully");
+                    // Cleanup the test user
+                    test_user.cleanup( &pool ).await.expect("Failed to cleanup test user");
+                },
                 Err(e) => eprintln!("Test add_user failed: {:?}", e),
-            }
+            } 
         }
 
         #[tokio::test]
         async fn test_get_user_by_username() {
-            let pool = setup();
-            let _ = add_user(&pool, "testuser", "test@example.com").await; // Add a user for test
 
-            let mut client = pool.get().await.unwrap();
+            let pool = setup(); // Setup the database connection
+            let username = format!("user_{}", rand::random::<u32>()); // Generate a random username
+            let email = format!("{}@example.com", username); // Generate a random email address
+            let _ = add_user(&pool, &username, &email ).await; // Add a user for the test 
 
-            match get_user_by_username(&mut client, "testuser").await {
+            let mut client = pool.get().await.unwrap(); // Get a database connection from the pool
+
+            match get_user_by_username(&mut client, &username ).await { // Get the user by username
                 Ok(user) => {
-                    assert_eq!(user.username, "testuser");
-                    assert_eq!(user.email, "test@example.com");
+                    assert_eq!(user.username, username );
+                    assert_eq!(user.email, email );
                     println!("Test get_user_by_username: User found successfully");
                 }
                 Err(e) => eprintln!("Test get_user_by_username failed: {:?}", e),
@@ -1039,7 +1046,6 @@ mod tests {
         }
     }
 
-    // TODO:
     //////////////////////////////////////////////////////////////////////////////
     ////////////////////// ********** Image Tests ********** /////////////////////
     //////////////////////////////////////////////////////////////////////////////
@@ -1047,12 +1053,13 @@ mod tests {
         use super::*;
 
         async fn setup_for_image_tests( pool: &Pool ) -> Result<(i32, String), MyDbError> {
-            let unique_username = format!("test_user_{}", rand::random::<u32>());
-            let unique_email = format!("test_email_{}", rand::random::<u32>());
+
+            let unique_username = format!("test_user_{}", rand::random::<u32>()); // Generate a random username
+            let unique_email = format!("test_email_{}", rand::random::<u32>()); // Generate a random email address
         
-            let user_id = add_user(&pool, &unique_username, &unique_email).await?;
-            let session_id = create_session(&pool, user_id).await?;
-            Ok((session_id, String::from("./tests/testImage.png")))
+            let user_id = add_user( pool, &unique_username, &unique_email).await?; // Add a user for the test
+            let session_id = create_session( pool, user_id).await?; // Create a session for the test user
+            Ok((session_id, String::from("./tests/testImage.png"))) // Return the session_id and file_path 
         }
 
         #[tokio::test]
