@@ -66,10 +66,9 @@ pub async fn setup_database(client: &mut deadpool_postgres::Client) -> Result<()
         CREATE TABLE IF NOT EXISTS images (
             id              SERIAL PRIMARY KEY,
             session_id      INTEGER REFERENCES sessions,
-            file_path       VARCHAR NOT NULL
+            file_path       VARCHAR NOT NULL,
             created_at      TIMESTAMP NOT NULL,
-            updated_at      TIMESTAMP NOT NULL,
-            -- Additional fields as necessary
+            updated_at      TIMESTAMP NOT NULL
         )
     ",
         )
@@ -90,10 +89,9 @@ pub async fn setup_database(client: &mut deadpool_postgres::Client) -> Result<()
             layer_type      VARCHAR( 50 ),
             visibility      BOOLEAN DEFAULT TRUE,
             opacity         FLOAT DEFAULT 100,
-            layer_data      BYTEA
-            order           INTEGER,
-            -- Additional fields as necessary
-        )
+            layer_data      BYTEA,
+            layer_order     INTEGER
+        );  
     ",
         )
         .await?;
@@ -409,7 +407,7 @@ pub async fn add_layer(
     layer_name: &str,
     layer_type: &str,
     layer_data: &[u8],
-    order: i32,
+    layer_order: i32,
 ) -> Result<(), MyDbError> {
     let client = pool.get().await?;
     let statement = client
@@ -442,7 +440,7 @@ pub async fn get_layer_by_layer_id(pool: &Pool, id: i32) -> Result<Layer, MyDbEr
             visibility: row.get("visibility"),
             opacity: row.get("opacity"),
             layer_data: row.get("layer_data"),
-            order: row.get("order"),
+            layer_order: row.get("layer_order"),
         })
     } else {
         Err(MyDbError::NotFound)
@@ -453,7 +451,7 @@ pub async fn get_layer_by_layer_id(pool: &Pool, id: i32) -> Result<Layer, MyDbEr
 pub async fn get_layers_by_image_id(pool: &Pool, image_id: i32) -> Result<Vec<Layer>, MyDbError> {
     let client = pool.get().await?;
     let statement = client
-        .prepare("SELECT * FROM layers WHERE image_id = $1 ORDER BY \"order\"")
+        .prepare("SELECT * FROM layers WHERE image_id = $1 ORDER BY \"layer_order\"")
         .await?;
     let rows = client.query(&statement, &[&image_id]).await?;
 
@@ -471,7 +469,7 @@ pub async fn get_layers_by_image_id(pool: &Pool, image_id: i32) -> Result<Vec<La
             visibility: row.get("visibility"),
             opacity: row.get("opacity"),
             layer_data: row.get("layer_data"),
-            order: row.get("order"),
+            layer_order: row.get("layer_order"),
         });
     }
     if layers.is_empty() {
@@ -513,7 +511,7 @@ fn reorder_layers_in_memory(
     new_order: i32,
 ) {
     // Get the old order number of the moved layer, e.g., 1 or 2 or 3, etc.
-    let old_order = layer_map.get(&moved_layer_id).unwrap().order;
+    let old_order = layer_map.get(&moved_layer_id).unwrap().layer_order;
 
     // Iterate over all layers and update the order of layers in between
     for layer in layer_map.values_mut() {
@@ -523,14 +521,14 @@ fn reorder_layers_in_memory(
             std::cmp::Ordering::Less => {
                 // if current layer order > old_order && current layer order <= new_order
                 // Layer is moved down
-                if layer.order > old_order && layer.order <= new_order {
-                    layer.order -= 1;
+                if layer.layer_order > old_order && layer.layer_order <= new_order {
+                    layer.layer_order -= 1;
                 }
             }
             std::cmp::Ordering::Greater => {
                 // Layer is moved up: Increase order of layers in between
-                if layer.order < old_order && layer.order >= new_order {
-                    layer.order += 1;
+                if layer.layer_order < old_order && layer.layer_order >= new_order {
+                    layer.layer_order += 1;
                 }
             }
             std::cmp::Ordering::Equal => {
@@ -540,7 +538,7 @@ fn reorder_layers_in_memory(
     }
 
     // Finally, set the new order for the moved layer
-    layer_map.get_mut(&moved_layer_id).unwrap().order = new_order;
+    layer_map.get_mut(&moved_layer_id).unwrap().layer_order = new_order;
 }
 
 // Construct a batch update query for all affected layers ////////////////////////
@@ -549,7 +547,7 @@ fn construct_batch_update_query(layer_map: &HashMap<i32, Layer>) -> String {
     for layer in layer_map.values() {
         query.push_str(&format!(
             "UPDATE layers SET order = {} WHERE id = {};",
-            layer.order, layer.id
+            layer.layer_order, layer.id
         ));
     }
     query
@@ -643,10 +641,10 @@ pub async fn duplicate_layer(pool: &Pool, layer_id: i32) -> Result<i32, MyDbErro
             visibility: row.get("visibility"),
             opacity: row.get("opacity"),
             layer_data: row.get("layer_data"),
-            order: row.get("order"),
+            layer_order: row.get("layer_order"),
         };
 
-        let statement = client.prepare( "INSERT INTO layers (image_id, layer_name, creation_date, last_modified, user_id, layer_type, visibility, opacity, layer_data, order) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)").await?;
+        let statement = client.prepare( "INSERT INTO layers (image_id, layer_name, creation_date, last_modified, user_id, layer_type, visibility, opacity, layer_data, layer_order) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)").await?;
         let result = client
             .execute(
                 &statement,
@@ -660,7 +658,7 @@ pub async fn duplicate_layer(pool: &Pool, layer_id: i32) -> Result<i32, MyDbErro
                     &layer.visibility,
                     &layer.opacity,
                     &layer.layer_data,
-                    &layer.order,
+                    &layer.layer_order,
                 ],
             )
             .await?;
@@ -884,7 +882,7 @@ pub struct Layer {
     pub visibility: bool,
     pub opacity: f32,
     pub layer_data: Vec<u8>, // Raw data for the layer
-    pub order: i32,          // Maintain layer order!
+    pub layer_order: i32,          // Maintain layer order!
                              // Add other fields TODO:
 }
 
@@ -902,7 +900,7 @@ impl Layer {
             visibility: row.get("visibility"),
             opacity: row.get("opacity"),
             layer_data: row.get("layer_data"),
-            order: row.get("order"),
+            layer_order: row.get("layer_order"),
         }
     }
 }
