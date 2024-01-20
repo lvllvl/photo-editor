@@ -6,7 +6,10 @@ use api::start_server;
 
 #[tokio::main]
 async fn main() -> Result<(), api::MyError> {
-    dotenv().ok(); // Load variables from .env file
+    dotenv::dotenv().ok(); // Load variables from .env file
+
+    let db_name = std::env::var("DB_NAME").expect("DB_NAME not set");
+    println!("DB_NAME: {}", db_name);
 
     // Create the database connection pool
     let pool = create_pool();
@@ -16,6 +19,7 @@ async fn main() -> Result<(), api::MyError> {
     if let Ok( mut client ) = pool.get().await {
 
         setup_database( &mut client ).await?;
+        eprint!("Connected to database.")
 
     } else {
         eprint!("Failed to connect to database.")

@@ -1,11 +1,13 @@
 use chrono::{DateTime, Duration, Utc};
 use deadpool_postgres::{Config, Pool};
-use postgres::types::ToSql;
+// use postgres::types::ToSql;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
 use tokio_postgres::{Error, NoTls, Row};
 use std::fmt;
+use dotenv::dotenv;
+use std::env;
 
 //////////////////////////////////////////////////////////////////////////////////
 //////////// ********** DB Connection Management ********** ////////////////////////
@@ -13,8 +15,14 @@ use std::fmt;
 // Manage database connections ////////////////////////////////////////////////////
 // setup a pool of connections to the database ////////////////////////////////////
 pub fn create_pool() -> Pool {
-    let cfg = Config::new();
-    // Set configuration details...
+    
+    let mut cfg = Config::new();
+    // Set configuration details... Retrieve from .env file
+    cfg.host = std::env::var("DB_HOST").ok();
+    cfg.user = std::env::var("DB_USER").ok();
+    cfg.password = std::env::var("DB_PASSWORD").ok();
+    cfg.dbname = std::env::var("DB_NAME").ok();  // Make sure this line is correctly retrieving the DB name
+
     cfg.create_pool(None, NoTls).expect("Failed to create pool")
 }
 
@@ -303,18 +311,17 @@ pub async fn get_session_id_for_user(pool: &Pool, user_id: i32) -> Result<i32, M
 //////////////////////////////////////////////////////////////////////////////////
 
 // add_image: add new image to database //////////////////////////////////////////
-pub async fn add_image(pool: &Pool, session_id: i32, file_path: &str) -> Result< i32, MyDbError> {
-
+pub async fn add_image(pool: &Pool, session_id: i32, file_path: &str) -> Result<i32, MyDbError> {
     let client = pool.get().await?;
     let statement = client
-        .prepare( "INSERT INTO images (session_id, file_path, created_at, updated_at) VALUES ($1, $2, NOW(), NOW())")
+        .prepare("INSERT INTO images (session_id, file_path, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) RETURNING id")
         .await?;
 
     let row = client
-        .query_one( &statement, &[ &session_id, &file_path ] )
+        .query_one(&statement, &[&session_id, &file_path])
         .await?;
     let image_id: i32 = row.get(0);
-    Ok( image_id )
+    Ok(image_id)
 }
 
 // get_all_images: all images associated with a user_id ///////////////////////////////
@@ -952,7 +959,6 @@ mod tests {
         cfg.user = env::var("DB_USER").ok();
         cfg.password = env::var("DB_PASSWORD").ok();
         cfg.dbname = env::var("DB_NAME").ok();
-
         cfg.create_pool(None, NoTls).expect("Failed to create pool")
     }
 
@@ -996,21 +1002,30 @@ mod tests {
     mod image_tests {
         use super::*;
 
-        async fn setup_for_image_tests(pool: &Pool) -> Result<(i32, String), MyDbError> {
-            let user_id = add_user(&pool, "test_user", "test@example.com").await?;
-            // TODO: Setup session ID
+        async fn setup_for_image_tests( pool: &Pool ) -> Result<(i32, String), MyDbError> {
+            let unique_username = format!("test_user_{}", rand::random::<u32>());
+            let unique_email = format!("test_email_{}", rand::random::<u32>());
+        
+            let user_id = add_user(&pool, &unique_username, &unique_email).await?;
             let session_id = create_session(&pool, user_id).await?;
-            Ok((session_id, String::from("path/to/test/image.png")))
+            Ok((session_id, String::from("./tests/testImage.png")))
         }
 
         #[tokio::test]
         async fn test_add_image() {
+            
             let pool = setup();
             let (session_id, file_path) = setup_for_image_tests(&pool).await.unwrap();
+            let image_id_result = add_image( &pool, session_id, &file_path ).await;
+            assert!( image_id_result.is_ok(), "Error adding image: {:?}", image_id_result.err() );
 
-            let result = add_image(&pool, session_id, &file_path).await;
-            assert!(result.is_ok());
-            // TODO: Add additional checks here
+            // let image_id = image_id_result.unwrap();
+            // // Perform addtional assertions if needed, e.g., checking if the image_id is valid
+            // assert!( image_id > 0 , "Image ID should be greater than 0" );
+
+            // // Verify that the iamge exists in the database
+            // let image_retrieval_result = get_single_image( &pool, image_id ).await;
+            // assert!( image_retrieval_result.is_ok(), "Image should exist in the database!" ); 
         }
 
         #[tokio::test]
