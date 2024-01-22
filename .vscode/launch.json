@@ -1,25 +1,41 @@
 {  
   "version": "0.2.0",  
   "configurations": [  
-    {
-      "name": "(lldb) Launch",
-      "type": "cppdbg",
-      "request": "launch",
-      "program": "${workspaceFolder}/target/debug/photoshop",
-      "args": [],
-      // "args": ["cargo", "run"],
-      "stopAtEntry": false,
-      "cwd": "${fileDirname}",
-      "environment": [],
-      "externalConsole": false,
-      "MIMode": "lldb"
-    },
+    // {
+    //   "name": "(lldb) Launch",
+    //   "type": "cppdbg",
+    //   "request": "launch",
+    //   "program": "${workspaceFolder}/target/debug/photoshop",
+    //   "args": [],
+    //   "stopAtEntry": false,
+    //   "cwd": "${fileDirname}",
+    //   "environment": [],
+    //   "externalConsole": false,
+    //   "MIMode": "lldb"
+    // },
     {  
       "type": "lldb",  
       "request": "launch",  
       "name": "Launch",  
-      "program": "${workspaceFolder}/target/debug/photoshop",  
+      "program": "${workspaceFolder}/target/debug/photoshop",
+      "stopOnEntry": true,
+      "logging": {
+        "engineLogging": true,
+      },
       "args": [],  
+      "cwd": "${workspaceFolder}",  
+      "preLaunchTask": "build"  
+    },  
+    {  
+      "type": "lldb",  
+      "request": "launch-app",  
+      "name": "Launch",  
+      "program": "${workspaceFolder}/target/debug/photoshop",
+      "stopOnEntry": true,
+      "logging": {
+        "engineLogging": true,
+      },
+      "args": ["cargo", "run"],  
       "cwd": "${workspaceFolder}",  
       "preLaunchTask": "build"  
     }  

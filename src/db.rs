@@ -6,8 +6,8 @@ use serde_json::json;
 use std::collections::HashMap;
 use tokio_postgres::{Error, NoTls, Row};
 use std::fmt;
-use dotenv::dotenv;
-use std::env;
+// use dotenv::dotenv;
+// use std::env;
 
 //////////////////////////////////////////////////////////////////////////////////
 //////////// ********** DB Connection Management ********** ////////////////////////
@@ -313,13 +313,29 @@ pub async fn add_image(pool: &Pool, session_id: i32, file_path: &str) -> Result<
     let client = pool.get().await?;
     let statement = client
         .prepare("INSERT INTO images (session_id, file_path, created_at, updated_at) VALUES ( $1, $2, NOW(), NOW() ) RETURNING id")
-        .await?;
+        .await
+        .map_err( MyDbError::PostgresError )?;
 
-    let row = client
-        .query_one(&statement, &[&session_id, &file_path])
-        .await?;
-    let image_id: i32 = row.get(0);
-    Ok(image_id)
+    match client.query_one(&statement, &[&session_id, &file_path]).await {
+
+        Ok(row) => {
+            let image_id: i32 = row.get(0);
+            println!("Image ID: {}", image_id); 
+            assert!( image_id > 0); 
+            Ok(image_id)
+        },
+        Err(e) => {
+            println!("Error adding image: {:?}", e);
+            Err(MyDbError::NotFound)
+        }
+    }
+        // CREATE TABLE IF NOT EXISTS images (
+        //     id              SERIAL PRIMARY KEY,
+        //     session_id      INTEGER REFERENCES sessions,
+        //     file_path       VARCHAR NOT NULL,
+        //     created_at      TIMESTAMP NOT NULL,
+        //     updated_at      TIMESTAMP NOT NULL
+        // )
 }
 
 // get_all_images: all images associated with a user_id ///////////////////////////////
@@ -1001,141 +1017,114 @@ mod tests {
         cfg.create_pool(None, NoTls).expect("Failed to create pool")
 
     }
-
     //////////////////////////////////////////////////////////////////////////////
     ////////////////////// ********** User Tests ********** //////////////////////
     //////////////////////////////////////////////////////////////////////////////
-    mod user_tests {
-        use actix_web::test;
+    /// test_add_user: Test adding a user to the database
+    #[tokio::test]
+    async fn test_add_user() {
 
-        use super::*;
+        let pool = setup();
+        // Create a test user
+        match TestUser::create( &pool ).await {
+            Ok( test_user ) => {
+                println!("Test add_user: User added successfully");
+                // Cleanup the test user
+                test_user.cleanup( &pool ).await.expect("Failed to cleanup test user");
+            },
+            Err(e) => eprintln!("Test add_user failed: {:?}", e),
+        } 
+    }
+    /// test_delete_user: Test deleting a user from the database 
+    #[tokio::test]
+    async fn test_get_user_by_username() {
 
-        #[tokio::test]
-        async fn test_add_user() {
+        let pool = setup(); // Setup the database connection
+        let username = format!("user_{}", rand::random::<u32>()); // Generate a random username
+        let email = format!("{}@example.com", username); // Generate a random email address
+        let _ = add_user(&pool, &username, &email ).await; // Add a user for the test 
 
-            let pool = setup();
-            // Create a test user
-            match TestUser::create( &pool ).await {
-                Ok( test_user ) => {
-                    println!("Test add_user: User added successfully");
-                    // Cleanup the test user
-                    test_user.cleanup( &pool ).await.expect("Failed to cleanup test user");
-                },
-                Err(e) => eprintln!("Test add_user failed: {:?}", e),
-            } 
-        }
+        let mut client = pool.get().await.unwrap(); // Get a database connection from the pool
 
-        #[tokio::test]
-        async fn test_get_user_by_username() {
-
-            let pool = setup(); // Setup the database connection
-            let username = format!("user_{}", rand::random::<u32>()); // Generate a random username
-            let email = format!("{}@example.com", username); // Generate a random email address
-            let _ = add_user(&pool, &username, &email ).await; // Add a user for the test 
-
-            let mut client = pool.get().await.unwrap(); // Get a database connection from the pool
-
-            match get_user_by_username(&mut client, &username ).await { // Get the user by username
-                Ok(user) => {
-                    assert_eq!(user.username, username );
-                    assert_eq!(user.email, email );
-                    println!("Test get_user_by_username: User found successfully");
-                }
-                Err(e) => eprintln!("Test get_user_by_username failed: {:?}", e),
+        match get_user_by_username(&mut client, &username ).await { // Get the user by username
+            Ok(user) => {
+                assert_eq!(user.username, username );
+                assert_eq!(user.email, email );
+                println!("Test get_user_by_username: User found successfully");
             }
+            Err(e) => eprintln!("Test get_user_by_username failed: {:?}", e),
         }
     }
 
     //////////////////////////////////////////////////////////////////////////////
     ////////////////////// ********** Image Tests ********** /////////////////////
     //////////////////////////////////////////////////////////////////////////////
-    mod image_tests {
-        use super::*;
+    /// setup for image tests 
+    async fn setup_for_image_tests( pool: &Pool ) -> Result<(i32, String), MyDbError> {
 
-        async fn setup_for_image_tests( pool: &Pool ) -> Result<(i32, String), MyDbError> {
-
-            let unique_username = format!("test_user_{}", rand::random::<u32>()); // Generate a random username
-            let unique_email = format!("test_email_{}", rand::random::<u32>()); // Generate a random email address
+        let test_user = TestUser::create( pool ).await?; // Create a test user: user_ID, username, email
+        let session_id = create_session( pool, test_user.user_id).await?; // Create a session for the test user
+        Ok( (session_id, String::from("./tests/testImage.png")) ) // Return the session_id and file_path 
+    }
+    /// test_add_image: Test adding an image to the database
+    #[tokio::test]
+    async fn test_add_image() {
         
-            let user_id = add_user( pool, &unique_username, &unique_email).await?; // Add a user for the test
-            let session_id = create_session( pool, user_id).await?; // Create a session for the test user
-            Ok((session_id, String::from("./tests/testImage.png"))) // Return the session_id and file_path 
-        }
+        let pool = setup();
+        let (session_id, file_path) = setup_for_image_tests(&pool).await.unwrap();
+        let image_id_result = add_image( &pool, session_id, &file_path ).await;
+        assert!( image_id_result.is_ok(), "Error adding image: {:?}", image_id_result.err() );
 
-        #[tokio::test]
-        async fn test_add_image() {
-            
-            let pool = setup();
-            let (session_id, file_path) = setup_for_image_tests(&pool).await.unwrap();
-            let image_id_result = add_image( &pool, session_id, &file_path ).await;
-            assert!( image_id_result.is_ok(), "Error adding image: {:?}", image_id_result.err() );
+        // let image_id = image_id_result.unwrap();
+        // // Perform addtional assertions if needed, e.g., checking if the image_id is valid
+        // assert!( image_id > 0 , "Image ID should be greater than 0" );
 
-            // let image_id = image_id_result.unwrap();
-            // // Perform addtional assertions if needed, e.g., checking if the image_id is valid
-            // assert!( image_id > 0 , "Image ID should be greater than 0" );
+        // // Verify that the iamge exists in the database
+        // let image_retrieval_result = get_single_image( &pool, image_id ).await;
+        // assert!( image_retrieval_result.is_ok(), "Image should exist in the database!" ); 
+    }
+    /// test_get_all_images_by_ID: Test retrieving all images from the database 
+    #[tokio::test]
+    async fn test_get_image_by_id() -> Result<(), Box<dyn std::error::Error>> {
+        let pool = setup();
+        let (session_id, file_path) = setup_for_image_tests(&pool).await.unwrap();
 
-            // // Verify that the iamge exists in the database
-            // let image_retrieval_result = get_single_image( &pool, image_id ).await;
-            // assert!( image_retrieval_result.is_ok(), "Image should exist in the database!" ); 
-        }
+        // Upload an image to the database 
+        let add_result = add_image(&pool, session_id, &file_path).await;
+        // Test: Make sure the result is ok
+        assert!(add_result.is_ok());
 
-        #[tokio::test]
-        async fn test_get_image_by_id() -> Result<(), Box<dyn std::error::Error>> {
-            let pool = setup();
-            let (session_id, file_path) = setup_for_image_tests(&pool).await.unwrap();
+        // Retreieve the added image
+        // 
+        let user_id = get_user_id_by_session_id(&pool, session_id).await?; 
+        let images: Vec<Image> = get_all_images(&pool, user_id).await?;
 
-            // Upload an image to the database 
-            let add_result = add_image(&pool, session_id, &file_path).await;
-            // Test: Make sure the result is ok
-            assert!(add_result.is_ok());
-
-            // Retreieve the added image
-            // 
-            let user_id = get_user_id_by_session_id(&pool, session_id).await?; 
-            let images: Vec<Image> = get_all_images(&pool, user_id).await?;
-
-            // For loop through all images, find the most recent one
-            let mut most_recent_image: Option< Image > = None;
-            for img in images {
-                match &most_recent_image {
-                    None => most_recent_image = Some( img ),
-                    Some( current_most_recent ) => {
-                        if img.created_at > current_most_recent.created_at {
-                            most_recent_image = Some( img );
-                        }
+        // For loop through all images, find the most recent one
+        let mut most_recent_image: Option< Image > = None;
+        for img in images {
+            match &most_recent_image {
+                None => most_recent_image = Some( img ),
+                Some( current_most_recent ) => {
+                    if img.created_at > current_most_recent.created_at {
+                        most_recent_image = Some( img );
                     }
                 }
             }
-            // Get the most recent image id
-            let most_recent_image_id = most_recent_image
-                .map( | img | img.id )
-                .expect( "No images found" ); 
-            // Now we have the ID of the most recently created image, you can also use the get_single_image function
-            let image_id = get_single_image(&pool, user_id).await;
-            // Get the specific image that was MOST RECENTLY UPLOADED 
-            let get_result = get_single_image(&pool, most_recent_image_id ).await;
-            assert!(get_result.is_ok());
-
-            Ok(())
-
-            // TODO: add other checks on the retrieved image
         }
+        // Get the most recent image id
+        let most_recent_image_id = most_recent_image
+            .map( | img | img.id )
+            .expect( "No images found" ); 
+        // Now we have the ID of the most recently created image, you can also use the get_single_image function
+        let image_id = get_single_image(&pool, user_id).await;
+        // Get the specific image that was MOST RECENTLY UPLOADED 
+        let get_result = get_single_image(&pool, most_recent_image_id ).await;
+        assert!(get_result.is_ok());
 
-        // #[tokio::tests]
-        // async fn test_update_image() {
-        //     // similar setup and assertion as previous tests
-        //     // update the image details and verify changes
+        Ok(())
 
-        // }
-
-        // #[tokio::tests]
-        // async fn test_delete_image() {
-        //     // similar setup and assertion as previous tests
-        //     // delete the image and verify it is NO LONGER retrievable
-
-        // }
+        // TODO: add other checks on the retrieved image
     }
-
     //////////////////////////////////////////////////////////////////////////////
     ////////////////////// ********** Layer Tests ********** /////////////////////
     //////////////////////////////////////////////////////////////////////////////

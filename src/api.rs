@@ -340,7 +340,6 @@ mod tests{
         add_user(pool, &username, &email).await
     }
 
-// pub async fn add_image(pool: &Pool, session_id: i32, file_path: &str) -> Result<(), MyDbError> {
     async fn upload_test_image( pool: &Pool, session_id: i32 ) -> Result< i32, MyDbError > {
         let file_path = "./tests/images/testImage.png";
         db::add_image( pool, session_id, file_path  ).await
