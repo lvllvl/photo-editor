@@ -1,38 +1,43 @@
-mod db;
 mod api;
+mod db;
 use actix_web::test;
-use db::*; 
+use db::*;
 // use db::{ setup_database, create_pool, add_image };
 use api::start_server;
 use deadpool_postgres::{Config, Pool};
 use dotenv::dotenv;
 
 // TODO: remove this struct + impl
-struct TestUser {
+struct TestUser
+{
     username: String,
     email: String,
     user_id: i32,
 }
-impl TestUser {
-
+impl TestUser
+{
     // Create a new user
-    async fn create( pool: &Pool ) -> Result< Self, MyDbError > {
-        let username = format!( "user_{}", rand::random::<u32>());
-        let email = format!( "{}@example.com", username );
-        let user_id = add_user( pool, &username, &email ).await?;
-        Ok( TestUser { username, email, user_id })
+    async fn create(pool: &Pool) -> Result<Self, MyDbError>
+    {
+        let username = format!("user_{}", rand::random::<u32>());
+        let email = format!("{}@example.com", username);
+        let user_id = add_user(pool, &username, &email).await?;
+        Ok(TestUser { username,
+                      email,
+                      user_id })
     }
-    
+
     // Cleanup test user
-    async fn cleanup( self, pool: &Pool ) -> Result< (), MyDbError > {
-        delete_user( pool, &self.username ).await?;
+    async fn cleanup(self, pool: &Pool) -> Result<(), MyDbError>
+    {
+        delete_user(pool, &self.username).await?;
         Ok(())
     }
-} 
+}
 
 #[tokio::main]
-async fn main() -> Result<(), api::MyError> {
-    
+async fn main() -> Result<(), api::MyError>
+{
     dotenv().ok(); // Load variables from .env file
 
     let db_name = std::env::var("DB_NAME").expect("DB_NAME not set");
@@ -53,8 +58,8 @@ async fn main() -> Result<(), api::MyError> {
     //     // TODO: delete this test_user statement
     //     // Setup a testuser for testing purposes
     //     let test_user = TestUser::create( &pool ).await.unwrap();
-    //     assert!( test_user.user_id > 0 ); 
-        
+    //     assert!( test_user.user_id > 0 );
+
     //     // TODO: delete this match statement
     //     // create a session for the test user
     //     let session_id = match create_test_session( &pool, test_user.user_id ).await {
@@ -79,11 +84,11 @@ async fn main() -> Result<(), api::MyError> {
     // }
 
     // Start the server with the database pool
-    start_server( pool ).await 
+    start_server(pool).await
 }
 
-
 /// Create a session for the test user
-async fn create_test_session( pool: &Pool, user_id: i32 ) -> Result< i32, MyDbError > {
-    create_session( pool, user_id ).await 
+async fn create_test_session(pool: &Pool, user_id: i32) -> Result<i32, MyDbError>
+{
+    create_session(pool, user_id).await
 }

@@ -1,0 +1,29 @@
+# Defines the maximum line length
+max_width = 100
+
+# Use tabs for indentation instead of spaces
+hard_tabs = false
+
+# Determines the style of the function signature
+fn_params_layout = "Tall"
+
+# Controls the style of the imports
+imports_layout = "Mixed"
+
+# Controls the style of the function calls
+fn_call_width = 60
+
+# Controls the style of the struct literals
+struct_lit_width = 18
+
+# Determines if 'use' declarations are reordered
+reorder_imports = true
+
+brace_style = "AlwaysNextLine"
+
+indent_style = "Visual"
+
+control_brace_style = "AlwaysNextLine"
+
+imports_layout = "Vertical"
+wrap_comments = true
