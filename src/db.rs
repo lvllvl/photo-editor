@@ -28,6 +28,7 @@ pub fn create_pool() -> Pool {
 
 //////////// ********** Setup Database Schema ********** /////////////////////////
 pub async fn setup_database(client: &mut deadpool_postgres::Client) -> Result<(), Error> {
+
     // Create User Table ////////////////////////////////////////////////////////
     client
         .batch_execute(

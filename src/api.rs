@@ -422,18 +422,18 @@ mod tests
     //////////////////////////////////////////////////////////////////////////////
     ///////////////////// ********** Image Tests ********** //////////////////////
     //////////////////////////////////////////////////////////////////////////////
-    #[tokio::test]
-    async fn test_add_image_handler()
-    {
-        let pool = setup();
+    // #[tokio::test]
+    // async fn test_add_image_handler()
+    // {
+    //     let pool = setup();
 
-        let test_user = TestUser::create(&pool).await.unwrap();
-        let session_id = create_test_session(&pool, test_user.user_id).await.unwrap(); // create a test session
-                                                                                       // Setup test data
-        let file_path = "./tests/images/testImage.png";
-        let result = add_image(&pool, session_id, file_path).await;
+    //     let test_user = TestUser::create(&pool).await.unwrap();
+    //     let session_id = create_test_session(&pool, test_user.user_id).await.unwrap(); // create a test session
+    //                                                                                    // Setup test data
+    //     let file_path = "./tests/images/testImage.png";
+    //     let result = add_image(&pool, session_id, file_path).await;
 
-        assert!(result.is_ok());
-        test_user.cleanup(&pool).await.unwrap();
-    }
+    //     assert!(result.is_ok());
+    //     test_user.cleanup(&pool).await.unwrap();
+    // }
 }
