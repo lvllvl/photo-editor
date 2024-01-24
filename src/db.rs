@@ -4,8 +4,8 @@ use deadpool_postgres::{Config, Pool};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
-use std::fmt;
 use tokio_postgres::{Error, NoTls, Row};
+use std::fmt;
 // use dotenv::dotenv;
 // use std::env;
 
@@ -14,85 +14,88 @@ use tokio_postgres::{Error, NoTls, Row};
 //////////////////////////////////////////////////////////////////////////////////
 // Manage database connections ////////////////////////////////////////////////////
 // setup a pool of connections to the database ////////////////////////////////////
-pub fn create_pool() -> Pool
-{
+pub fn create_pool() -> Pool {
+    
     let mut cfg = Config::new();
     // Set configuration details... Retrieve from .env file
     cfg.host = std::env::var("DB_HOST").ok();
     cfg.user = std::env::var("DB_USER").ok();
     cfg.password = std::env::var("DB_PASSWORD").ok();
-    cfg.dbname = std::env::var("DB_NAME").ok(); // Make sure this line is correctly retrieving the DB name
+    cfg.dbname = std::env::var("DB_NAME").ok();  // Make sure this line is correctly retrieving the DB name
 
     cfg.create_pool(None, NoTls).expect("Failed to create pool")
 }
 
 //////////// ********** Setup Database Schema ********** /////////////////////////
-pub async fn setup_database(client: &mut deadpool_postgres::Client) -> Result<(), Error>
-{
+pub async fn setup_database(client: &mut deadpool_postgres::Client) -> Result<(), Error> {
     // Create User Table ////////////////////////////////////////////////////////
-    client.batch_execute(
-                         "
+    client
+        .batch_execute(
+            "
         CREATE TABLE IF NOT EXISTS users (
             id              SERIAL PRIMARY KEY,
             username        VARCHAR UNIQUE NOT NULL,
             email           VARCHAR UNIQUE NOT NULL
         )
     ",
-    )
-          .await?;
+        )
+        .await?;
     println!("Users table created successfully.");
 
-    // Create Session Table //////////////////////////////////////////////////////
-    client.batch_execute(
-                         "
-        CREATE TABLE IF NOT EXISTS sessions (
-            id              SERIAL PRIMARY KEY,
-            user_id         INTEGER REFERENCES users(id),
-            creation_time   TIMESTAMP NOT NULL,
-            expiration_time TIMESTAMP NOT NULL,
-            last_activity   TIMESTAMP NOT NULL,
-            session_data    JSONB
-        )
-    ",
-    )
-          .await?;
-    println!("Sessions table created successfully.");
+    // // Create Session Table //////////////////////////////////////////////////////
+    // client
+    //     .batch_execute(
+    //         "
+    //     CREATE TABLE IF NOT EXISTS sessions (
+    //         id              SERIAL PRIMARY KEY,
+    //         user_id         INTEGER REFERENCES users(id),
+    //         creation_time   TIMESTAMP NOT NULL,
+    //         expiration_time TIMESTAMP NOT NULL,
+    //         last_activity   TIMESTAMP NOT NULL,
+    //         session_data    JSONB
+    //     )
+    // ",
+    //     )
+    //     .await?;
+    // println!("Sessions table created successfully.");
 
-    // Create Image Table ///////////////////////////////////////////////////////
-    client.batch_execute(
-                         "
-        CREATE TABLE IF NOT EXISTS images (
-            id              SERIAL PRIMARY KEY,
-            session_id      INTEGER REFERENCES sessions,
-            file_path       VARCHAR NOT NULL,
-            created_at      TIMESTAMP NOT NULL,
-            updated_at      TIMESTAMP NOT NULL
-        )
-    ",
-    )
-          .await?;
-    println!("images table created successfully.");
+    // // Create Image Table ///////////////////////////////////////////////////////
+    // client
+    //     .batch_execute(
+    //         "
+    //     CREATE TABLE IF NOT EXISTS images (
+    //         id              SERIAL PRIMARY KEY,
+    //         session_id      INTEGER REFERENCES sessions,
+    //         file_path       VARCHAR NOT NULL,
+    //         created_at      TIMESTAMP NOT NULL,
+    //         updated_at      TIMESTAMP NOT NULL
+    //     )
+    // ",
+    //     )
+    //     .await?;
+    // println!("images table created successfully.");
 
-    // Create Layers Table //////////////////////////////////////////////////////
-    client.batch_execute(
-                         "
-        CREATE TABLE IF NOT EXISTS layers (
-            id              SERIAL PRIMARY KEY,
-            image_id        INTEGER REFERENCES images,
-            layer_name      VARCHAR( 255 ),
-            creation_date   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            last_modified   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            user_id         INTEGER REFERENCES users,
-            layer_type      VARCHAR( 50 ),
-            visibility      BOOLEAN DEFAULT TRUE,
-            opacity         FLOAT DEFAULT 100,
-            layer_data      BYTEA,
-            layer_order     INTEGER
-        );  
-    ",
-    )
-          .await?;
-    println!("layers table created successfully.");
+    // // Create Layers Table //////////////////////////////////////////////////////
+    // client
+    //     .batch_execute(
+    //         "
+    //     CREATE TABLE IF NOT EXISTS layers (
+    //         id              SERIAL PRIMARY KEY,
+    //         image_id        INTEGER REFERENCES images,
+    //         layer_name      VARCHAR( 255 ),
+    //         creation_date   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    //         last_modified   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    //         user_id         INTEGER REFERENCES users,
+    //         layer_type      VARCHAR( 50 ),
+    //         visibility      BOOLEAN DEFAULT TRUE,
+    //         opacity         FLOAT DEFAULT 100,
+    //         layer_data      BYTEA,
+    //         layer_order     INTEGER
+    //     );  
+    // ",
+    //     )
+    //     .await?;
+    // println!("layers table created successfully.");
 
     Ok(())
 }
@@ -102,11 +105,11 @@ pub async fn setup_database(client: &mut deadpool_postgres::Client) -> Result<()
 //////////////////////////////////////////////////////////////////////////////////
 
 // Add a user to the database ////////////////////////////////////////////////////
-pub async fn add_user(pool: &Pool, username: &str, email: &str) -> Result<i32, MyDbError>
-{
+pub async fn add_user(pool: &Pool, username: &str, email: &str) -> Result<i32, MyDbError> {
     let client = pool.get().await?;
-    let statement = client.prepare("INSERT INTO users (username, email) VALUES ($1, $2)")
-                          .await?;
+    let statement = client
+        .prepare("INSERT INTO users (username, email) VALUES ($1, $2)")
+        .await?;
     let row = client.query_one(&statement, &[&username, &email]).await?;
     let user_id: i32 = row.get(0);
     Ok(user_id)
@@ -117,52 +120,45 @@ pub async fn add_user(pool: &Pool, username: &str, email: &str) -> Result<i32, M
 //////////////////////////////////////////////////////////////////////////////////
 
 // Get a user by username from the database //////////////////////////////////////
-pub async fn get_user_by_username(client: &mut deadpool_postgres::Client,
-                                  username: &str)
-                                  -> Result<User, MyDbError>
-{
-    let statement = client.prepare("SELECT * FROM users WHERE username = $1")
-                          .await?;
+pub async fn get_user_by_username(
+    client: &mut deadpool_postgres::Client,
+    username: &str,
+) -> Result<User, MyDbError> {
+    let statement = client
+        .prepare("SELECT * FROM users WHERE username = $1")
+        .await?;
     let rows = client.query(&statement, &[&username]).await?;
 
-    if let Some(row) = rows.into_iter().next()
-    {
+    if let Some(row) = rows.into_iter().next() {
         // Assuming 'User' is a struct representing a user
         Ok(User::from_row(&row))
-    }
-    else
-    {
+    } else {
         Err(MyDbError::NotFound)
     }
 }
 // Get a user by email from the database /////////////////////////////////////////
-pub async fn get_user_by_email(pool: &Pool, email: &str) -> Result<User, MyDbError>
-{
+pub async fn get_user_by_email(pool: &Pool, email: &str) -> Result<User, MyDbError> {
     let client = pool.get().await?;
-    let statement = client.prepare("SELECT * FROM users WHERE email = $1")
-                          .await?;
+    let statement = client
+        .prepare("SELECT * FROM users WHERE email = $1")
+        .await?;
     let rows = client.query(&statement, &[&email]).await?;
 
-    if let Some(row) = rows.into_iter().next()
-    {
+    if let Some(row) = rows.into_iter().next() {
         Ok(User::from_row(&row))
-    }
-    else
-    {
+    } else {
         Err(MyDbError::NotFound)
     }
 }
 // Get all users from the database ///////////////////////////////////////////////
-pub async fn get_all_users(pool: &Pool) -> Result<Vec<User>, MyDbError>
-{
+pub async fn get_all_users(pool: &Pool) -> Result<Vec<User>, MyDbError> {
     let client = pool.get().await?;
     let statement = client.prepare("SELECT * FROM users").await?;
     let rows = client.query(&statement, &[]).await?;
 
     let mut users = Vec::new();
 
-    for row in rows
-    {
+    for row in rows {
         users.push(User::from_row(&row));
     }
 
@@ -177,23 +173,21 @@ pub async fn get_all_users(pool: &Pool) -> Result<Vec<User>, MyDbError>
 //////////////////////////////////////////////////////////////////////////////////
 
 // Update user email in the database /////////////////////////////////////////////
-pub async fn update_user_email(pool: &Pool,
-                               username: &str,
-                               new_email: &str)
-                               -> Result<(), MyDbError>
-{
+pub async fn update_user_email(
+    pool: &Pool,
+    username: &str,
+    new_email: &str,
+) -> Result<(), MyDbError> {
     let client = pool.get().await?;
-    let statement = client.prepare("UPDATE users SET email = $1 WHERE username = $2")
-                          .await?;
+    let statement = client
+        .prepare("UPDATE users SET email = $1 WHERE username = $2")
+        .await?;
     let result = client.execute(&statement, &[&new_email, &username]).await?;
 
-    if result == 0
-    {
+    if result == 0 {
         // No rows were updated, i.e., the user was not found
         Err(MyDbError::NotFound)
-    }
-    else
-    {
+    } else {
         Ok(())
     }
 }
@@ -206,8 +200,7 @@ pub async fn update_user_email(pool: &Pool,
 //////////////////////////////////////////////////////////////////////////////////
 
 // create_session: for an individual /////////////////////////////////////////////
-pub async fn create_session(pool: &Pool, user_id: i32) -> Result<i32, MyDbError>
-{
+pub async fn create_session(pool: &Pool, user_id: i32) -> Result<i32, MyDbError> {
     let client = pool.get().await?;
     let mut creation_time = Utc::now();
     let mut expiration_time = creation_time + Duration::hours(1); // Max session length
@@ -220,27 +213,32 @@ pub async fn create_session(pool: &Pool, user_id: i32) -> Result<i32, MyDbError>
         .prepare( "INSERT INTO sessions (user_id, creation_time, expiration_time, last_activity, session_data ) VALUES ($1, $2, $3, $4, $5) RETURNING id" )
         .await?;
 
-    let session_id: i32 = client.query_one(&statement,
-                                           &[&user_id,
-                                             &creation_time,
-                                             &expiration_time,
-                                             &last_activity,
-                                             &session_data_str])
-                                .await?
-                                .get(0);
+    let session_id: i32 = client
+        .query_one(
+            &statement,
+            &[
+                &user_id,
+                &creation_time,
+                &expiration_time,
+                &last_activity,
+                &session_data_str,
+            ],
+        )
+        .await?
+        .get(0);
 
     Ok(session_id)
 }
 
 // end_session: for an individual  ///////////////////////////////////////////////
-pub async fn end_session(pool: &Pool, user_id: i32) -> Result<(), MyDbError>
-{
+pub async fn end_session(pool: &Pool, user_id: i32) -> Result<(), MyDbError> {
     // Fetch a database connection from the pool
     let client = pool.get().await?;
 
     // Prep the SQL query to update the session
-    let statement = client.prepare("UPDATE session SET end_time = NOW() WHERE id = $1")
-                          .await?;
+    let statement = client
+        .prepare("UPDATE session SET end_time = NOW() WHERE id = $1")
+        .await?;
 
     let session_id = get_session_id_for_user(&pool, user_id).await?;
 
@@ -248,75 +246,60 @@ pub async fn end_session(pool: &Pool, user_id: i32) -> Result<(), MyDbError>
     let result = client.execute(&statement, &[&session_id]).await?;
 
     // Check if any rows were affected
-    if result == 0
-    {
+    if result == 0 {
         // No rows were updated, session not found or already ended
         Err(MyDbError::NotFound)
-    }
-    else
-    {
+    } else {
         // Session succesfully ended
         Ok(())
     }
 }
 
-/// Get a user_id ( i32 ) by providing the session_id (i32)
-pub async fn get_user_id_by_session_id(pool: &Pool, session_id: i32) -> Result<i32, MyDbError>
-{
+/// Get a user_id ( i32 ) by providing the session_id (i32) 
+pub async fn get_user_id_by_session_id( pool: &Pool, session_id: i32 ) -> Result< i32, MyDbError > {
     let client = pool.get().await?;
-    let statement = client.prepare("SELECT user_id FROM sessions WHERE id = $1")
-                          .await?;
-    let rows = client.query(&statement, &[&session_id]).await?;
+    let statement = client.prepare( "SELECT user_id FROM sessions WHERE id = $1" ).await?;
+    let rows = client.query( &statement,  &[ &session_id ] ).await?;
 
-    if let Some(row) = rows.into_iter().next()
-    {
-        Ok(row.get("user_id"))
-    }
-    else
-    {
-        Err(MyDbError::NotFound)
+    if let Some( row ) = rows.into_iter().next() {
+        Ok( row.get( "user_id" ))
+    } else {
+        Err( MyDbError::NotFound )
     }
 }
 
 // get_active_sessions: for all current users ////////////////////////////////////
-pub async fn get_active_sessions(pool: &Pool) -> Result<Vec<Session>, MyDbError>
-{
+pub async fn get_active_sessions(pool: &Pool) -> Result<Vec<Session>, MyDbError> {
     let client = pool.get().await?;
-    let statement = client.prepare("SELECT * FROM sessions WHERE end_time IS NULL")
-                          .await?;
+    let statement = client
+        .prepare("SELECT * FROM sessions WHERE end_time IS NULL")
+        .await?;
     let rows = client.query(&statement, &[]).await?;
     let mut sessions = Vec::new();
 
-    for row in rows
-    {
+    for row in rows {
         // Session is a struct, that represents a single session
         sessions.push(Session::from_row(&row)?);
     }
 
-    if sessions.is_empty()
-    {
+    if sessions.is_empty() {
         Err(MyDbError::NotFound)
-    }
-    else
-    {
+    } else {
         Ok(sessions)
     }
 }
 
 // get_session_ID for a SINGLE user //////////////////////////////////////////////
-pub async fn get_session_id_for_user(pool: &Pool, user_id: i32) -> Result<i32, MyDbError>
-{
+pub async fn get_session_id_for_user(pool: &Pool, user_id: i32) -> Result<i32, MyDbError> {
     let client = pool.get().await?;
-    let statement = client.prepare("SELECT id FROM sessions WHERE user_id = $1")
-                          .await?;
+    let statement = client
+        .prepare("SELECT id FROM sessions WHERE user_id = $1")
+        .await?;
 
     let rows = client.query(&statement, &[&user_id]).await?;
-    if let Some(row) = rows.into_iter().next()
-    {
+    if let Some(row) = rows.into_iter().next() {
         Ok(row.get("id"))
-    }
-    else
-    {
+    } else {
         Err(MyDbError::NotFound)
     }
 }
@@ -326,121 +309,105 @@ pub async fn get_session_id_for_user(pool: &Pool, user_id: i32) -> Result<i32, M
 //////////////////////////////////////////////////////////////////////////////////
 
 // add_image: add new image to database //////////////////////////////////////////
-pub async fn add_image(pool: &Pool, session_id: i32, file_path: &str) -> Result<i32, MyDbError>
-{
+pub async fn add_image(pool: &Pool, session_id: i32, file_path: &str) -> Result<i32, MyDbError> {
     let client = pool.get().await?;
     let statement = client
         .prepare("INSERT INTO images (session_id, file_path, created_at, updated_at) VALUES ( $1, $2, NOW(), NOW() ) RETURNING id")
         .await
         .map_err( MyDbError::PostgresError )?;
 
-    match client.query_one(&statement, &[&session_id, &file_path])
-                .await
-    {
-        Ok(row) =>
-        {
+    match client.query_one(&statement, &[&session_id, &file_path]).await {
+
+        Ok(row) => {
             let image_id: i32 = row.get(0);
-            println!("Image ID: {}", image_id);
-            assert!(image_id > 0);
+            println!("Image ID: {}", image_id); 
+            assert!( image_id > 0); 
             Ok(image_id)
-        }
-        Err(e) =>
-        {
+        },
+        Err(e) => {
             println!("Error adding image: {:?}", e);
             Err(MyDbError::NotFound)
         }
     }
-    // CREATE TABLE IF NOT EXISTS images (
-    //     id              SERIAL PRIMARY KEY,
-    //     session_id      INTEGER REFERENCES sessions,
-    //     file_path       VARCHAR NOT NULL,
-    //     created_at      TIMESTAMP NOT NULL,
-    //     updated_at      TIMESTAMP NOT NULL
-    // )
+        // CREATE TABLE IF NOT EXISTS images (
+        //     id              SERIAL PRIMARY KEY,
+        //     session_id      INTEGER REFERENCES sessions,
+        //     file_path       VARCHAR NOT NULL,
+        //     created_at      TIMESTAMP NOT NULL,
+        //     updated_at      TIMESTAMP NOT NULL
+        // )
 }
 
 // get_all_images: all images associated with a user_id ///////////////////////////////
-pub async fn get_all_images(pool: &Pool, user_id: i32) -> Result<Vec<Image>, MyDbError>
-{
+pub async fn get_all_images(pool: &Pool, user_id: i32) -> Result<Vec< Image >, MyDbError> {
+
     let client = pool.get().await?;
-    let statement = client.prepare("SELECT * FROM images WHERE user_id = $1")
-                          .await?;
+    let statement = client.prepare("SELECT * FROM images WHERE user_id = $1").await?;
     let rows = client.query(&statement, &[&user_id]).await?;
 
     let mut images = Vec::new();
-    for row in rows
-    {
-        let image = Image { id: row.get("id"),
-                            session_id: row.get("session_id"),
-                            file_path: row.get("file_path"),
-                            created_at: row.get("created_at"),
-                            updated_at: row.get("updated_at") };
-        images.push(image);
+    for row in rows {
+        let image = Image {
+            id: row.get("id"),
+            session_id: row.get("session_id"),
+            file_path: row.get("file_path"),
+            created_at: row.get("created_at"),
+            updated_at: row.get("updated_at"),
+        };
+        images.push(image); 
     }
 
-    if images.is_empty()
-    {
-        Err(MyDbError::NotFound)
-    }
-    else
-    {
-        Ok(images)
+    if images.is_empty() {
+        Err( MyDbError::NotFound )
+    } else {
+        Ok( images )
     }
 }
 
 // get_single_image: a single image by image_ID ///////////////////////////////
-pub async fn get_single_image(pool: &Pool, image_id: i32) -> Result<Image, MyDbError>
-{
+pub async fn get_single_image(pool: &Pool, image_id: i32) -> Result<Image, MyDbError> {
+
     let client = pool.get().await?;
-    let statement = client.prepare("SELECT * FROM images WHERE image_id = $1")
-                          .await?;
-    let rows = client.query(&statement, &[&image_id]).await?;
-    if let Some(row) = rows.into_iter().next()
-    {
-        Ok(Image { id: row.get("id"),
-                   session_id: row.get("session_id"),
-                   file_path: row.get("file_path"),
-                   created_at: row.get("created_at"),
-                   updated_at: row.get("updated_at") })
-    }
-    else
-    {
+    let statement = client.prepare("SELECT * FROM images WHERE image_id = $1").await?;
+    let rows = client.query(&statement, &[&image_id ]).await?;
+    if let Some(row) = rows.into_iter().next() {
+        Ok(Image {
+            id: row.get("id"),
+            session_id: row.get("session_id"),
+            file_path: row.get("file_path"),
+            created_at: row.get("created_at"),
+            updated_at: row.get("updated_at"),
+        })
+    } else {
         Err(MyDbError::NotFound)
     }
 }
 
 // udpate_image: update image data/details ///////////////////////////////////////
-pub async fn update_image(pool: &Pool, id: i32, new_file_path: &str) -> Result<(), MyDbError>
-{
+pub async fn update_image(pool: &Pool, id: i32, new_file_path: &str) -> Result<(), MyDbError> {
     let client = pool.get().await?;
-    let statement = client.prepare("UPDATE images set file_path = $1 WHERE id = $2")
-                          .await?;
+    let statement = client
+        .prepare("UPDATE images set file_path = $1 WHERE id = $2")
+        .await?;
     let result = client.execute(&statement, &[&new_file_path, &id]).await?;
 
-    if result == 0
-    {
+    if result == 0 {
         // No rows were updated, i.e., the image was not found
         Err(MyDbError::NotFound)
-    }
-    else
-    {
+    } else {
         Ok(())
     }
 }
 
 // delete_image: delete image from database //////////////////////////////////////
-pub async fn delete_image(pool: &Pool, id: i32) -> Result<(), MyDbError>
-{
+pub async fn delete_image(pool: &Pool, id: i32) -> Result<(), MyDbError> {
     let client = pool.get().await?;
     let statement = client.prepare("DELETE FROM images WHERE id = $1").await?;
     let result = client.execute(&statement, &[&id]).await?;
-    if result == 0
-    {
+    if result == 0 {
         // No rows were deleted, i.e., the image was not found
         Err(MyDbError::NotFound)
-    }
-    else
-    {
+    } else {
         Ok(())
     }
 }
@@ -450,82 +417,80 @@ pub async fn delete_image(pool: &Pool, id: i32) -> Result<(), MyDbError>
 //////////////////////////////////////////////////////////////////////////////////
 
 // add_layer: add new layer to an image //////////////////////////////////////////
-pub async fn add_layer(pool: &Pool,
-                       image_id: i32,
-                       layer_name: &str,
-                       layer_type: &str,
-                       layer_data: &[u8],
-                       layer_order: i32)
-                       -> Result<(), MyDbError>
-{
+pub async fn add_layer(
+    pool: &Pool,
+    image_id: i32,
+    layer_name: &str,
+    layer_type: &str,
+    layer_data: &[u8],
+    layer_order: i32,
+) -> Result<(), MyDbError> {
     let client = pool.get().await?;
     let statement = client
         .prepare( "INSERT INTO layers (image_id, layer_name, layer_type, layer_data) VALUES ($1, $2, $3, $4)")
         .await?;
 
-    client.execute(&statement,
-                   &[&image_id, &layer_name, &layer_type, &layer_data])
-          .await?;
+    client
+        .execute(
+            &statement,
+            &[&image_id, &layer_name, &layer_type, &layer_data],
+        )
+        .await?;
     Ok(())
 }
 
 // get a single layer by layer id ////////////////////////////////////////////////
-pub async fn get_layer_by_layer_id(pool: &Pool, id: i32) -> Result<Layer, MyDbError>
-{
+pub async fn get_layer_by_layer_id(pool: &Pool, id: i32) -> Result<Layer, MyDbError> {
     let client = pool.get().await?;
     let statement = client.prepare("SELECT * FROM layers WHERE id = $1").await?;
     let rows = client.query(&statement, &[&id]).await?;
-    if let Some(row) = rows.into_iter().next()
-    {
-        Ok(Layer { id: row.get("id"),
-                   image_id: row.get("image_id"),
-                   layer_name: row.get("layer_name"),
-                   creation_date: row.get("creation_date"),
-                   last_modified: row.get("last_modified"),
-                   user_id: row.get("user_id"),
-                   layer_type: row.get("layer_type"),
-                   visibility: row.get("visibility"),
-                   opacity: row.get("opacity"),
-                   layer_data: row.get("layer_data"),
-                   layer_order: row.get("layer_order") })
-    }
-    else
-    {
+    if let Some(row) = rows.into_iter().next() {
+        Ok(Layer {
+            id: row.get("id"),
+            image_id: row.get("image_id"),
+            layer_name: row.get("layer_name"),
+            creation_date: row.get("creation_date"),
+            last_modified: row.get("last_modified"),
+            user_id: row.get("user_id"),
+            layer_type: row.get("layer_type"),
+            visibility: row.get("visibility"),
+            opacity: row.get("opacity"),
+            layer_data: row.get("layer_data"),
+            layer_order: row.get("layer_order"),
+        })
+    } else {
         Err(MyDbError::NotFound)
     }
 }
 
 // get_layers_by_image_id: Retrieve ALL layers for a specific image //////////////
-pub async fn get_layers_by_image_id(pool: &Pool, image_id: i32) -> Result<Vec<Layer>, MyDbError>
-{
+pub async fn get_layers_by_image_id(pool: &Pool, image_id: i32) -> Result<Vec<Layer>, MyDbError> {
     let client = pool.get().await?;
-    let statement =
-        client.prepare("SELECT * FROM layers WHERE image_id = $1 ORDER BY \"layer_order\"")
-              .await?;
+    let statement = client
+        .prepare("SELECT * FROM layers WHERE image_id = $1 ORDER BY \"layer_order\"")
+        .await?;
     let rows = client.query(&statement, &[&image_id]).await?;
 
     // Sort the layers based on the order field
     let mut layers = Vec::new();
-    for row in rows
-    {
-        layers.push(Layer { id: row.get("id"),
-                            image_id: row.get("image_id"),
-                            layer_name: row.get("layer_name"),
-                            creation_date: row.get("creation_date"),
-                            last_modified: row.get("last_modified"),
-                            user_id: row.get("user_id"),
-                            layer_type: row.get("layer_type"),
-                            visibility: row.get("visibility"),
-                            opacity: row.get("opacity"),
-                            layer_data: row.get("layer_data"),
-                            layer_order: row.get("layer_order") });
+    for row in rows {
+        layers.push(Layer {
+            id: row.get("id"),
+            image_id: row.get("image_id"),
+            layer_name: row.get("layer_name"),
+            creation_date: row.get("creation_date"),
+            last_modified: row.get("last_modified"),
+            user_id: row.get("user_id"),
+            layer_type: row.get("layer_type"),
+            visibility: row.get("visibility"),
+            opacity: row.get("opacity"),
+            layer_data: row.get("layer_data"),
+            layer_order: row.get("layer_order"),
+        });
     }
-    if layers.is_empty()
-    {
+    if layers.is_empty() {
         Err(MyDbError::NotFound)
-    }
-    else
-    {
+    } else {
         Ok(layers)
     }
 }
@@ -533,18 +498,17 @@ pub async fn get_layers_by_image_id(pool: &Pool, image_id: i32) -> Result<Vec<La
 // TODO: pub async fn get_layer_statistics(pool: &Pool) -> Result<LayerStatistics, MyDbError>;
 
 // update_layer_order: update layer order ////////////////////////////////////////
-pub async fn update_layer_order(pool: &Pool,
-                                image_id: i32,
-                                layer_id: i32,
-                                new_order: i32)
-                                -> Result<(), MyDbError>
-{
+pub async fn update_layer_order(
+    pool: &Pool,
+    image_id: i32,
+    layer_id: i32,
+    new_order: i32,
+) -> Result<(), MyDbError> {
     let layers = get_layers_by_image_id(pool, image_id).await?;
     let mut layer_map = HashMap::new();
 
     // Create a map from layer id to layer data
-    for layer in layers
-    {
+    for layer in layers {
         layer_map.insert(layer.id, layer);
     }
 
@@ -557,39 +521,33 @@ pub async fn update_layer_order(pool: &Pool,
 }
 
 // Reorder layers in memory based on new order ///////////////////////////////////
-fn reorder_layers_in_memory(layer_map: &mut HashMap<i32, Layer>,
-                            moved_layer_id: i32,
-                            new_order: i32)
-{
+fn reorder_layers_in_memory(
+    layer_map: &mut HashMap<i32, Layer>,
+    moved_layer_id: i32,
+    new_order: i32,
+) {
     // Get the old order number of the moved layer, e.g., 1 or 2 or 3, etc.
     let old_order = layer_map.get(&moved_layer_id).unwrap().layer_order;
 
     // Iterate over all layers and update the order of layers in between
-    for layer in layer_map.values_mut()
-    {
+    for layer in layer_map.values_mut() {
         // Compare the old_order and new order of the moved layer
-        match old_order.cmp(&new_order)
-        {
+        match old_order.cmp(&new_order) {
             // Layer is moved down: Decrease order of layers in between
-            std::cmp::Ordering::Less =>
-            {
+            std::cmp::Ordering::Less => {
                 // if current layer order > old_order && current layer order <= new_order
                 // Layer is moved down
-                if layer.layer_order > old_order && layer.layer_order <= new_order
-                {
+                if layer.layer_order > old_order && layer.layer_order <= new_order {
                     layer.layer_order -= 1;
                 }
             }
-            std::cmp::Ordering::Greater =>
-            {
+            std::cmp::Ordering::Greater => {
                 // Layer is moved up: Increase order of layers in between
-                if layer.layer_order < old_order && layer.layer_order >= new_order
-                {
+                if layer.layer_order < old_order && layer.layer_order >= new_order {
                     layer.layer_order += 1;
                 }
             }
-            std::cmp::Ordering::Equal =>
-            {
+            std::cmp::Ordering::Equal => {
                 // Layer is moved to the same position: Do nothing
             }
         }
@@ -600,20 +558,19 @@ fn reorder_layers_in_memory(layer_map: &mut HashMap<i32, Layer>,
 }
 
 // Construct a batch update query for all affected layers ////////////////////////
-fn construct_batch_update_query(layer_map: &HashMap<i32, Layer>) -> String
-{
+fn construct_batch_update_query(layer_map: &HashMap<i32, Layer>) -> String {
     let mut query = String::new();
-    for layer in layer_map.values()
-    {
-        query.push_str(&format!("UPDATE layers SET order = {} WHERE id = {};",
-                                layer.layer_order, layer.id));
+    for layer in layer_map.values() {
+        query.push_str(&format!(
+            "UPDATE layers SET order = {} WHERE id = {};",
+            layer.layer_order, layer.id
+        ));
     }
     query
 }
 
 // Execute the batch update query ////////////////////////////////////////////////
-async fn execute_batch_update(pool: &Pool, query: String) -> Result<(), MyDbError>
-{
+async fn execute_batch_update(pool: &Pool, query: String) -> Result<(), MyDbError> {
     let client = pool.get().await?;
     let statement = client.prepare(&query).await?;
     client.execute(&statement, &[]).await?;
@@ -621,120 +578,114 @@ async fn execute_batch_update(pool: &Pool, query: String) -> Result<(), MyDbErro
 }
 
 // update_layer: update layer data/details ///////////////////////////////////////
-pub async fn update_layer(pool: &Pool,
-                          id: i32,
-                          new_layer_name: &str,
-                          new_layer_type: &str,
-                          new_layer_data: &[u8],
-                          new_layer_order: i32)
-                          -> Result<(), MyDbError>
-{
+pub async fn update_layer(
+    pool: &Pool,
+    id: i32,
+    new_layer_name: &str,
+    new_layer_type: &str,
+    new_layer_data: &[u8],
+    new_layer_order: i32,
+) -> Result<(), MyDbError> {
     let client = pool.get().await?;
     let statement = client
         .prepare(
             "UPDATE layers set layer_name = $1, layer_type = $2, layer_data = $3 WHERE id = $4",
         )
         .await?;
-    let result = client.execute(&statement,
-                                &[&new_layer_name, &new_layer_type, &new_layer_data, &id])
-                       .await?;
+    let result = client
+        .execute(
+            &statement,
+            &[&new_layer_name, &new_layer_type, &new_layer_data, &id],
+        )
+        .await?;
 
-    if result == 0
-    {
+    if result == 0 {
         // No rows were updated, i.e., the layer was not found
         Err(MyDbError::NotFound)
-    }
-    else
-    {
+    } else {
         Ok(())
     }
 }
 
 // delete_layer: delete layer from database/image ////////////////////////////////
-pub async fn delete_layer(pool: &Pool, id: i32) -> Result<(), MyDbError>
-{
+pub async fn delete_layer(pool: &Pool, id: i32) -> Result<(), MyDbError> {
     let client = pool.get().await?;
     let statement = client.prepare("DELETE FROM layers WHERE id = $1").await?;
     let result = client.execute(&statement, &[&id]).await?;
-    if result == 0
-    {
+    if result == 0 {
         // No rows were deleted, i.e., the layer was not found
         Err(MyDbError::NotFound)
-    }
-    else
-    {
+    } else {
         Ok(())
     }
 }
 
 // update_toggle_layer_visibility: toggle layer visibility ///////////////////////
-pub async fn update_toggle_layer_visibility(pool: &Pool,
-                                            layer_id: i32,
-                                            visible: bool)
-                                            -> Result<(), MyDbError>
-{
+pub async fn update_toggle_layer_visibility(
+    pool: &Pool,
+    layer_id: i32,
+    visible: bool,
+) -> Result<(), MyDbError> {
     let client = pool.get().await?;
-    let statement = client.prepare("UPDATE layers SET visibility = $1 WHERE id = $2")
-                          .await?;
+    let statement = client
+        .prepare("UPDATE layers SET visibility = $1 WHERE id = $2")
+        .await?;
     let result = client.execute(&statement, &[&visible, &layer_id]).await?;
-    if result == 0
-    {
+    if result == 0 {
         // No rows were updated, i.e., the layer was not found
         Err(MyDbError::NotFound)
-    }
-    else
-    {
+    } else {
         Ok(())
     }
 }
 
 // duplicate_layer: duplicate a layer, returns new layer ID //////////////////////
-pub async fn duplicate_layer(pool: &Pool, layer_id: i32) -> Result<i32, MyDbError>
-{
+pub async fn duplicate_layer(pool: &Pool, layer_id: i32) -> Result<i32, MyDbError> {
     let client = pool.get().await?;
     let statement = client.prepare("SELECT * FROM layers WHERE id = $1").await?;
     let rows = client.query(&statement, &[&layer_id]).await?;
 
-    if let Some(row) = rows.into_iter().next()
-    {
-        let layer = Layer { id: row.get("id"),
-                            image_id: row.get("image_id"),
-                            layer_name: row.get("layer_name"),
-                            creation_date: row.get("creation_date"),
-                            last_modified: row.get("last_modified"),
-                            user_id: row.get("user_id"),
-                            layer_type: row.get("layer_type"),
-                            visibility: row.get("visibility"),
-                            opacity: row.get("opacity"),
-                            layer_data: row.get("layer_data"),
-                            layer_order: row.get("layer_order") };
+    if let Some(row) = rows.into_iter().next() {
+        let layer = Layer {
+            id: row.get("id"),
+            image_id: row.get("image_id"),
+            layer_name: row.get("layer_name"),
+            creation_date: row.get("creation_date"),
+            last_modified: row.get("last_modified"),
+            user_id: row.get("user_id"),
+            layer_type: row.get("layer_type"),
+            visibility: row.get("visibility"),
+            opacity: row.get("opacity"),
+            layer_data: row.get("layer_data"),
+            layer_order: row.get("layer_order"),
+        };
 
         let statement = client.prepare( "INSERT INTO layers (image_id, layer_name, creation_date, last_modified, user_id, layer_type, visibility, opacity, layer_data, layer_order) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)").await?;
-        let result = client.execute(&statement,
-                                    &[&layer.image_id,
-                                      &layer.layer_name,
-                                      &layer.creation_date,
-                                      &layer.last_modified,
-                                      &layer.user_id,
-                                      &layer.layer_type,
-                                      &layer.visibility,
-                                      &layer.opacity,
-                                      &layer.layer_data,
-                                      &layer.layer_order])
-                           .await?;
+        let result = client
+            .execute(
+                &statement,
+                &[
+                    &layer.image_id,
+                    &layer.layer_name,
+                    &layer.creation_date,
+                    &layer.last_modified,
+                    &layer.user_id,
+                    &layer.layer_type,
+                    &layer.visibility,
+                    &layer.opacity,
+                    &layer.layer_data,
+                    &layer.layer_order,
+                ],
+            )
+            .await?;
 
-        if result == 0
-        {
+        if result == 0 {
             // No rows were inserted, i.e., the layer was not duplicated
             Err(MyDbError::NotFound)
-        }
-        else
-        {
+        } else {
             Ok(layer.id)
         }
-    }
-    else
-    {
+    } else {
         Err(MyDbError::NotFound)
     }
 }
@@ -812,20 +763,17 @@ pub async fn duplicate_layer(pool: &Pool, layer_id: i32) -> Result<i32, MyDbErro
 //////////////////////////////////////////////////////////////////////////////////
 
 // Delete a user from the database ///////////////////////////////////////////////
-pub async fn delete_user(pool: &Pool, username: &str) -> Result<(), MyDbError>
-{
+pub async fn delete_user(pool: &Pool, username: &str) -> Result<(), MyDbError> {
     let client = pool.get().await?;
-    let statement = client.prepare("DELETE FROM users WHERE username = $1")
-                          .await?;
+    let statement = client
+        .prepare("DELETE FROM users WHERE username = $1")
+        .await?;
     let result = client.execute(&statement, &[&username]).await?;
 
-    if result == 0
-    {
+    if result == 0 {
         // No rows were deleted, i.e., the user was not found
         Err(MyDbError::NotFound)
-    }
-    else
-    {
+    } else {
         Ok(())
     }
 }
@@ -834,8 +782,7 @@ pub async fn delete_user(pool: &Pool, username: &str) -> Result<(), MyDbError>
 //////////// ********** Error Handling ********** ////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////
 #[derive(Debug)]
-pub enum MyDbError
-{
+pub enum MyDbError {
     PostgresError(postgres::Error),
     PoolError(deadpool::managed::PoolError<postgres::Error>),
     NotFound,
@@ -843,36 +790,29 @@ pub enum MyDbError
     // ... other error types as needed
 }
 
-impl From<serde_json::Error> for MyDbError
-{
-    fn from(err: serde_json::Error) -> MyDbError
-    {
+impl From<serde_json::Error> for MyDbError {
+    fn from(err: serde_json::Error) -> MyDbError {
         MyDbError::JsonError(err.to_string())
     }
 }
 
-impl From<postgres::Error> for MyDbError
-{
-    fn from(err: postgres::Error) -> MyDbError
-    {
+impl From<postgres::Error> for MyDbError {
+    fn from(err: postgres::Error) -> MyDbError {
         MyDbError::PostgresError(err)
     }
 }
 
-impl From<deadpool::managed::PoolError<postgres::Error>> for MyDbError
-{
-    fn from(err: deadpool::managed::PoolError<postgres::Error>) -> MyDbError
-    {
+impl From<deadpool::managed::PoolError<postgres::Error>> for MyDbError {
+    fn from(err: deadpool::managed::PoolError<postgres::Error>) -> MyDbError {
         MyDbError::PoolError(err)
     }
+
 }
 
 impl std::error::Error for MyDbError {}
-impl fmt::Display for MyDbError
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
-    {
-        write!(f, "Database error: {:?}", self)
+impl fmt::Display for MyDbError {
+    fn fmt( &self, f: &mut fmt::Formatter< '_> ) -> fmt::Result {
+        write!( f, "Database error: {:?}", self )
     }
 }
 
@@ -882,19 +822,16 @@ impl fmt::Display for MyDbError
 
 // Struct to represent a user ////////////////////////////////////////////////////
 #[derive(Debug, Serialize, Deserialize)]
-pub struct User
-{
+pub struct User {
     pub id: i32,
     pub username: String,
     pub email: String,
     // Add other fields TODO:
 }
 
-impl User
-{
+impl User {
     // Create a new user instance from a database row
-    pub fn from_row(row: &Row) -> User
-    {
+    pub fn from_row(row: &Row) -> User {
         User {
             id: row.get("id"),
             username: row.get("username"),
@@ -908,8 +845,7 @@ impl User
 //////////////////////////////////////////////////////////////////////////////////
 /// Merge a group of layers into a single layer
 #[derive(Debug, Serialize, Deserialize)]
-pub struct LayerGroup
-{
+pub struct LayerGroup {
     pub group_id: i32,
     pub group_name: String,
     pub layer_ids: Vec<i32>,
@@ -922,8 +858,7 @@ pub struct LayerGroup
 //////////////////////////////////////////////////////////////////////////////////
 /// Struct to represent layer statistics
 #[derive(Debug, Serialize, Deserialize)]
-pub struct LayerStatistics
-{
+pub struct LayerStatistics {
     pub total_layers: i32,
     pub average_layers_per_image: f32,
     // most_active_users: Vec<User>, // Assuming UserId is a type representing a user ID
@@ -939,8 +874,7 @@ pub struct LayerStatistics
 //////////// ********** Image Representation ********** //////////////////////////
 //////////////////////////////////////////////////////////////////////////////////
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Image
-{
+pub struct Image {
     pub id: i32,
     pub session_id: i32,
     pub file_path: String,
@@ -953,8 +887,7 @@ pub struct Image
 //////////// ********** Layer Representation ********** //////////////////////////
 //////////////////////////////////////////////////////////////////////////////////
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Layer
-{
+pub struct Layer {
     pub id: i32,
     pub image_id: i32,
     pub layer_name: String,
@@ -965,26 +898,26 @@ pub struct Layer
     pub visibility: bool,
     pub opacity: f32,
     pub layer_data: Vec<u8>, // Raw data for the layer
-    pub layer_order: i32,    // Maintain layer order!
+    pub layer_order: i32,          // Maintain layer order!
                              // Add other fields TODO:
 }
 
-impl Layer
-{
+impl Layer {
     // Create a new layer instance from a database row
-    pub fn from_row(row: &Row) -> Layer
-    {
-        Layer { id: row.get("id"),
-                image_id: row.get("image_id"),
-                layer_name: row.get("layer_name"),
-                creation_date: row.get("creation_date"),
-                last_modified: row.get("last_modified"),
-                user_id: row.get("user_id"),
-                layer_type: row.get("layer_type"),
-                visibility: row.get("visibility"),
-                opacity: row.get("opacity"),
-                layer_data: row.get("layer_data"),
-                layer_order: row.get("layer_order") }
+    pub fn from_row(row: &Row) -> Layer {
+        Layer {
+            id: row.get("id"),
+            image_id: row.get("image_id"),
+            layer_name: row.get("layer_name"),
+            creation_date: row.get("creation_date"),
+            last_modified: row.get("last_modified"),
+            user_id: row.get("user_id"),
+            layer_type: row.get("layer_type"),
+            visibility: row.get("visibility"),
+            opacity: row.get("opacity"),
+            layer_data: row.get("layer_data"),
+            layer_order: row.get("layer_order"),
+        }
     }
 }
 
@@ -992,8 +925,7 @@ impl Layer
 //////////// ********** Session Representation ********** ////////////////////////
 //////////////////////////////////////////////////////////////////////////////////
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Session
-{
+pub struct Session {
     pub id: i32,
     pub user_id: i32,
     pub creation_time: DateTime<Utc>,
@@ -1002,23 +934,21 @@ pub struct Session
     pub session_data: serde_json::Value,
 }
 
-impl Session
-{
+impl Session {
     // Function to create a session instance from a database row
-    pub fn from_row(row: &Row) -> Result<Session, MyDbError>
-    {
+    pub fn from_row(row: &Row) -> Result<Session, MyDbError> {
         let session_data_str: String = row.get("session_data");
-        let session_data =
-            serde_json::from_str(&session_data_str).map_err(|e| {
-                                                       MyDbError::JsonError(e.to_string())
-                                                   })?;
+        let session_data = serde_json::from_str(&session_data_str)
+            .map_err(|e| MyDbError::JsonError(e.to_string()))?;
 
-        Ok(Session { id: row.get("id"),
-                     user_id: row.get("user_id"),
-                     creation_time: row.get("creation_time"),
-                     expiration_time: row.get("expiration_time"),
-                     last_activity: row.get("last_activity"),
-                     session_data })
+        Ok(Session {
+            id: row.get("id"),
+            user_id: row.get("user_id"),
+            creation_time: row.get("creation_time"),
+            expiration_time: row.get("expiration_time"),
+            last_activity: row.get("last_activity"),
+            session_data,
+        })
     }
 }
 
@@ -1026,8 +956,7 @@ impl Session
 //////////// ********** Unit Tests ********** ////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////
 #[cfg(test)]
-mod tests
-{
+mod tests {
     use super::*;
     use dotenv::dotenv;
     use std::env;
@@ -1035,57 +964,49 @@ mod tests
     //////////////////////////////////////////////////////////////////////////////
     ///////////////////// ********** Setup ********** ////////////////////////////
     //////////////////////////////////////////////////////////////////////////////
-    struct TestUser
-    {
+    /// TestUser: Struct to represent a test user
+    struct TestUser {
         username: String,
         email: String,
         user_id: i32,
     }
-    impl TestUser
-    {
+    /// TestUser implementation
+    impl TestUser {
         // Create a new user
-        async fn create(pool: &Pool) -> Result<Self, MyDbError>
-        {
-            let username = format!("user_{}", rand::random::<u32>());
-            let email = format!("{}@example.com", username);
-            let user_id = add_user(pool, &username, &email).await?;
-            Ok(TestUser { username,
-                          email,
-                          user_id })
+        async fn create( pool: &Pool ) -> Result< Self, MyDbError > {
+            let username = format!( "user_{}", rand::random::<u32>());
+            let email = format!( "{}@example.com", username );
+            let user_id = add_user( pool, &username, &email ).await?;
+            Ok( TestUser { username, email, user_id })
         }
-
+        
         // Cleanup test user
-        async fn cleanup(self, pool: &Pool) -> Result<(), MyDbError>
-        {
-            delete_user(pool, &self.username).await?;
+        async fn cleanup( self, pool: &Pool ) -> Result< (), MyDbError > {
+            delete_user( pool, &self.username ).await?;
             Ok(())
         }
-    }
-
+    } 
+    
     /// Create a session for the test user
-    async fn create_test_session(pool: &Pool, user_id: i32) -> Result<i32, MyDbError>
-    {
-        create_session(pool, user_id).await
+    async fn create_test_session( pool: &Pool, user_id: i32 ) -> Result< i32, MyDbError > {
+        create_session( pool, user_id ).await 
     }
 
-    /// Create a test user for testing purposes
-    async fn create_test_user(pool: &Pool) -> Result<i32, MyDbError>
-    {
+    /// Create a test user for testing purposes 
+    async fn create_test_user( pool: &Pool ) -> Result<i32, MyDbError> {
         let username = format!("user_{}", rand::random::<u32>());
         let email = format!("{}@example.com", username);
         add_user(pool, &username, &email).await
     }
 
     /// Create a test session for testing purposes
-    async fn upload_test_image(pool: &Pool, session_id: i32) -> Result<i32, MyDbError>
-    {
+    async fn upload_test_image( pool: &Pool, session_id: i32 ) -> Result< i32, MyDbError > {
         let file_path = "./tests/images/testImage.png";
-        add_image(pool, session_id, file_path).await
+        add_image( pool, session_id, file_path  ).await
     }
 
     /// Setup mock database connection
-    fn setup() -> Pool
-    {
+    fn setup() -> Pool {
         dotenv().ok(); // Load variables from .env file
         let mut cfg = Config::new();
 
@@ -1095,47 +1016,41 @@ mod tests
         cfg.password = env::var("DB_PASSWORD").ok();
         cfg.dbname = env::var("DB_NAME").ok();
         cfg.create_pool(None, NoTls).expect("Failed to create pool")
+
     }
     //////////////////////////////////////////////////////////////////////////////
     ////////////////////// ********** User Tests ********** //////////////////////
     //////////////////////////////////////////////////////////////////////////////
     /// test_add_user: Test adding a user to the database
     #[tokio::test]
-    async fn test_add_user()
-    {
+    async fn test_add_user() {
+
         let pool = setup();
         // Create a test user
-        match TestUser::create(&pool).await
-        {
-            Ok(test_user) =>
-            {
+        match TestUser::create( &pool ).await {
+            Ok( test_user ) => {
                 println!("Test add_user: User added successfully");
                 // Cleanup the test user
-                test_user.cleanup(&pool)
-                         .await
-                         .expect("Failed to cleanup test user");
-            }
+                test_user.cleanup( &pool ).await.expect("Failed to cleanup test user");
+            },
             Err(e) => eprintln!("Test add_user failed: {:?}", e),
-        }
+        } 
     }
-    /// test_delete_user: Test deleting a user from the database
+    /// test_delete_user: Test deleting a user from the database 
     #[tokio::test]
-    async fn test_get_user_by_username()
-    {
+    async fn test_get_user_by_username() {
+
         let pool = setup(); // Setup the database connection
         let username = format!("user_{}", rand::random::<u32>()); // Generate a random username
         let email = format!("{}@example.com", username); // Generate a random email address
-        let _ = add_user(&pool, &username, &email).await; // Add a user for the test
+        let _ = add_user(&pool, &username, &email ).await; // Add a user for the test 
 
         let mut client = pool.get().await.unwrap(); // Get a database connection from the pool
 
-        match get_user_by_username(&mut client, &username).await
-        {
-            // Get the user by username
-            Ok(user) =>
-            {
-                assert_eq!(user.username, username);
-                assert_eq!(user.email, email);
+        match get_user_by_username(&mut client, &username ).await { // Get the user by username
+            Ok(user) => {
+                assert_eq!(user.username, username );
+                assert_eq!(user.email, email );
                 println!("Test get_user_by_username: User found successfully");
             }
             Err(e) => eprintln!("Test get_user_by_username failed: {:?}", e),
@@ -1145,78 +1060,75 @@ mod tests
     //////////////////////////////////////////////////////////////////////////////
     ////////////////////// ********** Image Tests ********** /////////////////////
     //////////////////////////////////////////////////////////////////////////////
-    /// setup for image tests
-    async fn setup_for_image_tests(pool: &Pool) -> Result<(i32, String), MyDbError>
-    {
-        let test_user = TestUser::create(pool).await?; // Create a test user: user_ID, username, email
-        let session_id = create_session(pool, test_user.user_id).await?; // Create a session for the test user
-        Ok((session_id, String::from("./tests/testImage.png"))) // Return the session_id and file_path
-    }
-    /// test_add_image: Test adding an image to the database
-    #[tokio::test]
-    async fn test_add_image()
-    {
-        let pool = setup();
-        let (session_id, file_path) = setup_for_image_tests(&pool).await.unwrap();
-        let image_id_result = add_image(&pool, session_id, &file_path).await;
-        assert!(image_id_result.is_ok(),
-                "Error adding image: {:?}",
-                image_id_result.err());
+    
+    // setup for image tests 
+    // async fn setup_for_image_tests( pool: &Pool ) -> Result<(i32, String), MyDbError> {
 
-        // let image_id = image_id_result.unwrap();
-        // // Perform addtional assertions if needed, e.g., checking if the image_id is valid
-        // assert!( image_id > 0 , "Image ID should be greater than 0" );
+    //     let test_user = TestUser::create( pool ).await?; // Create a test user: user_ID, username, email
+    //     let session_id = create_session( pool, test_user.user_id).await?; // Create a session for the test user
+    //     Ok( (session_id, String::from("./tests/testImage.png")) ) // Return the session_id and file_path 
+    // }
+    
+    // test_add_image: Test adding an image to the database
+    // #[tokio::test]
+    // async fn test_add_image() {
+        
+    //     let pool = setup();
+    //     let (session_id, file_path) = setup_for_image_tests(&pool).await.unwrap();
+    //     let image_id_result = add_image( &pool, session_id, &file_path ).await;
+    //     assert!( image_id_result.is_ok(), "Error adding image: {:?}", image_id_result.err() );
 
-        // // Verify that the iamge exists in the database
-        // let image_retrieval_result = get_single_image( &pool, image_id ).await;
-        // assert!( image_retrieval_result.is_ok(), "Image should exist in the database!" );
-    }
-    /// test_get_all_images_by_ID: Test retrieving all images from the database
-    #[tokio::test]
-    async fn test_get_image_by_id() -> Result<(), Box<dyn std::error::Error>>
-    {
-        let pool = setup();
-        let (session_id, file_path) = setup_for_image_tests(&pool).await.unwrap();
+    //     // let image_id = image_id_result.unwrap();
+    //     // // Perform addtional assertions if needed, e.g., checking if the image_id is valid
+    //     // assert!( image_id > 0 , "Image ID should be greater than 0" );
 
-        // Upload an image to the database
-        let add_result = add_image(&pool, session_id, &file_path).await;
-        // Test: Make sure the result is ok
-        assert!(add_result.is_ok());
+    //     // // Verify that the iamge exists in the database
+    //     // let image_retrieval_result = get_single_image( &pool, image_id ).await;
+    //     // assert!( image_retrieval_result.is_ok(), "Image should exist in the database!" ); 
+    // }
+    
+    // test_get_all_images_by_ID: Test retrieving all images from the database 
+    // #[tokio::test]
+    // async fn test_get_image_by_id() -> Result<(), Box<dyn std::error::Error>> {
+    //     let pool = setup();
+    //     let (session_id, file_path) = setup_for_image_tests(&pool).await.unwrap();
 
-        // Retreieve the added image
-        //
-        let user_id = get_user_id_by_session_id(&pool, session_id).await?;
-        let images: Vec<Image> = get_all_images(&pool, user_id).await?;
+    //     // Upload an image to the database 
+    //     let add_result = add_image(&pool, session_id, &file_path).await;
+    //     // Test: Make sure the result is ok
+    //     assert!(add_result.is_ok());
 
-        // For loop through all images, find the most recent one
-        let mut most_recent_image: Option<Image> = None;
-        for img in images
-        {
-            match &most_recent_image
-            {
-                None => most_recent_image = Some(img),
-                Some(current_most_recent) =>
-                {
-                    if img.created_at > current_most_recent.created_at
-                    {
-                        most_recent_image = Some(img);
-                    }
-                }
-            }
-        }
-        // Get the most recent image id
-        let most_recent_image_id = most_recent_image.map(|img| img.id)
-                                                    .expect("No images found");
-        // Now we have the ID of the most recently created image, you can also use the get_single_image function
-        let image_id = get_single_image(&pool, user_id).await;
-        // Get the specific image that was MOST RECENTLY UPLOADED
-        let get_result = get_single_image(&pool, most_recent_image_id).await;
-        assert!(get_result.is_ok());
+    //     // Retreieve the added image
+    //     // 
+    //     let user_id = get_user_id_by_session_id(&pool, session_id).await?; 
+    //     let images: Vec<Image> = get_all_images(&pool, user_id).await?;
 
-        Ok(())
+    //     // For loop through all images, find the most recent one
+    //     let mut most_recent_image: Option< Image > = None;
+    //     for img in images {
+    //         match &most_recent_image {
+    //             None => most_recent_image = Some( img ),
+    //             Some( current_most_recent ) => {
+    //                 if img.created_at > current_most_recent.created_at {
+    //                     most_recent_image = Some( img );
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     // Get the most recent image id
+    //     let most_recent_image_id = most_recent_image
+    //         .map( | img | img.id )
+    //         .expect( "No images found" ); 
+    //     // Now we have the ID of the most recently created image, you can also use the get_single_image function
+    //     let image_id = get_single_image(&pool, user_id).await;
+    //     // Get the specific image that was MOST RECENTLY UPLOADED 
+    //     let get_result = get_single_image(&pool, most_recent_image_id ).await;
+    //     assert!(get_result.is_ok());
 
-        // TODO: add other checks on the retrieved image
-    }
+    //     Ok(())
+
+    //     // TODO: add other checks on the retrieved image
+    // }
     //////////////////////////////////////////////////////////////////////////////
     ////////////////////// ********** Layer Tests ********** /////////////////////
     //////////////////////////////////////////////////////////////////////////////

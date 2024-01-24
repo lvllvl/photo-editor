@@ -396,10 +396,6 @@ mod tests
             App::new()
                 .configure(configure_api))
                 .await;
-        // let app = test::init_service(App::new()
-        //                             .app_data(web::Data::new(pool.clone()))
-        //                             .configure( start_server( &pool ) ) // Use your actual server configuration function
-        //                             .await);
 
         // Define the new user data in JSON format
         let new_user_data = r#"{"username": "test_user", "email": "test@example.com"}"#;
