@@ -966,15 +966,18 @@ mod tests {
     ///////////////////// ********** Setup ********** ////////////////////////////
     //////////////////////////////////////////////////////////////////////////////
     /// TestUser: Struct to represent a test user
-    struct TestUser {
+    struct TestUser 
+    {
         username: String,
         email: String,
         user_id: i32,
     }
     /// TestUser implementation
-    impl TestUser {
+    impl TestUser 
+    {
         // Create a new user
-        async fn create( pool: &Pool ) -> Result< Self, MyDbError > {
+        async fn create( pool: &Pool ) -> Result< Self, MyDbError > 
+        {
             let username = format!( "user_{}", rand::random::<u32>());
             let email = format!( "{}@example.com", username );
             let user_id = add_user( pool, &username, &email ).await?;
@@ -1019,6 +1022,7 @@ mod tests {
         cfg.create_pool(None, NoTls).expect("Failed to create pool")
 
     }
+    
     //////////////////////////////////////////////////////////////////////////////
     ////////////////////// ********** User Tests ********** //////////////////////
     //////////////////////////////////////////////////////////////////////////////
@@ -1037,6 +1041,7 @@ mod tests {
             Err(e) => eprintln!("Test add_user failed: {:?}", e),
         } 
     }
+
     /// test_delete_user: Test deleting a user from the database 
     #[tokio::test]
     async fn test_get_user_by_username() {
@@ -1055,6 +1060,30 @@ mod tests {
                 println!("Test get_user_by_username: User found successfully");
             }
             Err(e) => eprintln!("Test get_user_by_username failed: {:?}", e),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_get_user_by_email() {
+
+        let pool = setup(); // Setup the database connection
+        let test_user = TestUser::create( &pool ).await.unwrap(); // Create a test user
+
+        let _user_id = add_user(&pool, &test_user.username, &test_user.email ).await; // Add a user for the test 
+
+        match get_user_by_email( & pool, &test_user.email ).await { // Get the user by username
+
+            Ok( user )=> {
+
+                assert_eq!( test_user.username, user.username ); // Assert the username exists
+                assert_eq!( test_user.email, user.email ); // Assert the username exists
+                assert_eq!( test_user.user_id, user.id ); // Assert the username exists
+
+                // assert!( !test_user.email.is_empty() ); // Assert the username exists 
+                println!("Test get_user_by_email: User found successfully");
+
+            },
+            Err(e) => eprintln!("Test get_user_by_email failed: {:?}", e),
         }
     }
 
