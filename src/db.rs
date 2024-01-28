@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use chrono::{DateTime, Duration, Utc};
 use deadpool_postgres::{Config, Pool};
 // use postgres::types::ToSql;
@@ -6,6 +7,8 @@ use serde_json::json;
 use std::collections::HashMap;
 use tokio_postgres::{Error, NoTls, Row};
 use std::fmt;
+
+
 // use dotenv::dotenv;
 // use std::env;
 

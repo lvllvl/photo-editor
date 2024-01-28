@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 mod api;
 mod db;
 use actix_web::test;
