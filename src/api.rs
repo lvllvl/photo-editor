@@ -7,6 +7,7 @@ use crate::db::*; // QUEST: Am I exposing all db.rs funcs by doing this?
 use actix_web::{web, App, http, HttpResponse, HttpServer, Responder, test};
 use deadpool_postgres::{Config, Pool};
 use serde::Deserialize;
+use serde_json::json;
 use tokio_postgres::{Error, NoTls, Row};
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -18,9 +19,10 @@ pub async fn start_server(pool: Pool) -> Result<(), MyError>
         App::new().app_data(web::Data::new(pool.clone()))
                   .route("/", web::get().to(index))
                   .route("/add_user", web::post().to(add_user_handler))
-                  .route("/user/{username}", web::get().to(get_user_handler))
+                  .route("get_user_by_username/{username}", web::get().to(get_user_handler))
                   .route("/user/{username}", web::delete().to(delete_user_handler))
-                  .route("/user/{username}", web::post().to( update_user_email_handler ))
+                  .route("/user/{username}/update_email", web::put().to( update_user_email_handler ))
+                  .route("/users", web::get().to(get_all_users_handler)) // TODO: remove this in PROD
         // Other routes
     }).bind("127.0.0.1:8080")? // TODO: Does this need to change in PROD?
       .run()
@@ -78,7 +80,7 @@ async fn add_user_handler(pool: web::Data<Pool>, new_user: web::Json<NewUser>) -
 {
     match db::add_user(&pool, &new_user.username, &new_user.email).await
     {
-        Ok(user_id) => HttpResponse::Ok().json("User added successfully"),
+        Ok( user_id) => HttpResponse::Ok().json( format!("User added successfully with ID: {}", user_id )),
         Err(MyDbError::PostgresError(e)) =>
         {
             HttpResponse::InternalServerError().json(format!("Postgres error: {}", e))
@@ -103,16 +105,30 @@ struct NewUser
 async fn get_user_handler(pool: web::Data<Pool>, path: web::Path<(String,)>) -> HttpResponse
 {
     let username = &path.into_inner().0;
-
-    match pool.get().await
+    match db::get_user_by_username(&pool, username).await
     {
-        Ok(mut client) => match db::get_user_by_username(&mut client, username).await
-        {
-            Ok(user) => HttpResponse::Ok().json(user),
-            Err(MyDbError::NotFound) => HttpResponse::NotFound().finish(),
-            Err(_) => HttpResponse::InternalServerError().finish(),
-        },
-        Err(_) => HttpResponse::InternalServerError().finish(),
+        // Ok(user) => HttpResponse::Ok().json(user),
+        Ok(user) => HttpResponse::Ok().body(format!("This is the requested user: {}", user)),
+        Err(MyDbError::NotFound) => HttpResponse::NotFound().json(format!("User {} not found", username)),
+        Err(_) => HttpResponse::InternalServerError().json("Internal server error"),
+    }
+}
+
+/// Get all users //////////////////////////////////////////////////////////////
+/// This is for administrative purposes.
+async fn get_all_users_handler(pool: web::Data<Pool>) -> HttpResponse
+{
+    match db::get_all_users(&pool).await
+    {
+        Ok(users) => {
+            let response = json!({
+                "status": "success", 
+                "total_users": users.len(),
+                "users": users
+            });
+            HttpResponse::Ok().json( response)
+        }
+        Err(_) => HttpResponse::InternalServerError().json("Internal server error"),
     }
 }
 
@@ -129,6 +145,7 @@ async fn delete_user_handler(pool: web::Data<Pool>, path: web::Path<(String,)>) 
         Err(_) => HttpResponse::InternalServerError().json("Internal server error"),
     }
 }
+
 
 /// Update user email ///////////////////////////////////////////////////////////
 /// To allow users to update thier email.
