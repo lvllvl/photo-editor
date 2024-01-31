@@ -36,7 +36,8 @@ async fn index() -> impl Responder
     HttpResponse::Ok().body("Welcome to the API!")
 }
 
-//////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////
+/// TODO: figure out what to do with this, if it's needed
 pub fn configure_api(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::resource("/add_user")
@@ -44,8 +45,6 @@ pub fn configure_api(cfg: &mut web::ServiceConfig) {
         // ... other routes
     );
 }
-
-  
 
 // Error Enum for server function ////////////////////////////////////////////////
 #[derive(Debug)]
@@ -76,6 +75,23 @@ impl From<postgres::Error> for MyError
 
 /// Route handler to add a new user //////////////////////////////////////////////
 /// This allows new users to register.
+/// 
+/// # Arguements
+/// * 'pool' - A reference to the database connection pool.
+/// * 'new_user' - A web::Json tuple containing the new user data.
+/// 
+/// # Returns
+/// 
+/// Return an HttpResponse indicating the outcome of the operation.
+/// 
+/// # Example Request
+/// 
+/// POST /add_user
+/// Body: { "username": "new_user", "email": "sample@email.com"}
+/// 
+/// # Example Response
+/// 
+/// "User added successfully with ID: 1"
 async fn add_user_handler(pool: web::Data<Pool>, new_user: web::Json<NewUser>) -> HttpResponse
 {
     match db::add_user(&pool, &new_user.username, &new_user.email).await
@@ -100,8 +116,23 @@ struct NewUser
     email: String,
 }
 
-/// Route handler to get a user by username //////////////////////////////////////
+/// Get a User by providing a username ///////////////////////////////////////////
+/// This is a GET request to get a user by a username. 
 /// This allows users to get their user profile
+///
+/// # Arguements
+///
+/// * 'pool' - A reference to the database connection pool.
+/// * 'path' - A web::Path tuple.
+///
+/// # Returns
+///
+/// Return the user data if successful.
+///
+/// # Example Request
+///
+/// GET /users/{username}
+//////////////////////////////////////////////////////////////////////////////////
 async fn get_user_handler(pool: web::Data<Pool>, path: web::Path<(String,)>) -> HttpResponse
 {
     let username = &path.into_inner().0;
@@ -116,6 +147,19 @@ async fn get_user_handler(pool: web::Data<Pool>, path: web::Path<(String,)>) -> 
 
 /// Get all users //////////////////////////////////////////////////////////////
 /// This is for administrative purposes.
+/// 
+/// # Arguements
+/// 
+/// * 'pool' - A reference to the database connection pool.
+/// 
+/// # Returns
+/// 
+/// Return a JSON response containing all users.
+/// 
+/// # Example Request
+/// 
+/// GET /users
+//////////////////////////////////////////////////////////////////////////////////
 async fn get_all_users_handler(pool: web::Data<Pool>) -> HttpResponse
 {
     match db::get_all_users(&pool).await
