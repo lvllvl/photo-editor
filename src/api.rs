@@ -20,6 +20,7 @@ pub async fn start_server(pool: Pool) -> Result<(), MyError>
                   .route("/add_user", web::post().to(add_user_handler))
                   .route("/user/{username}", web::get().to(get_user_handler))
                   .route("/user/{username}", web::delete().to(delete_user_handler))
+                  .route("/user/{username}", web::post().to( update_user_email_handler ))
         // Other routes
     }).bind("127.0.0.1:8080")? // TODO: Does this need to change in PROD?
       .run()
@@ -75,9 +76,9 @@ impl From<postgres::Error> for MyError
 /// This allows new users to register.
 async fn add_user_handler(pool: web::Data<Pool>, new_user: web::Json<NewUser>) -> HttpResponse
 {
-    match add_user(&pool, &new_user.username, &new_user.email).await
+    match db::add_user(&pool, &new_user.username, &new_user.email).await
     {
-        Ok(_) => HttpResponse::Ok().json("User added successfully"),
+        Ok(user_id) => HttpResponse::Ok().json("User added successfully"),
         Err(MyDbError::PostgresError(e)) =>
         {
             HttpResponse::InternalServerError().json(format!("Postgres error: {}", e))
@@ -90,7 +91,7 @@ async fn add_user_handler(pool: web::Data<Pool>, new_user: web::Json<NewUser>) -
         // Handle other errors
     }
 }
-#[derive(Debug, Deserialize)] // QUEST: What does the Debug macro allow you to do?
+#[derive(Debug, Deserialize)] 
 struct NewUser
 {
     username: String,

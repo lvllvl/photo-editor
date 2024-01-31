@@ -112,7 +112,7 @@ pub async fn setup_database(client: &mut deadpool_postgres::Client) -> Result<()
 pub async fn add_user(pool: &Pool, username: &str, email: &str) -> Result<i32, MyDbError> {
     let client = pool.get().await?;
     let statement = client
-        .prepare("INSERT INTO users (username, email) VALUES ($1, $2)")
+        .prepare("INSERT INTO users (username, email) VALUES ($1, $2) RETURNING id")
         .await?;
     let row = client.query_one(&statement, &[&username, &email]).await?;
     let user_id: i32 = row.get(0);

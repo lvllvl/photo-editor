@@ -17,6 +17,6 @@ async fn main() -> Result<(), api::MyError>
 
     // Create the database connection pool
     let pool = create_pool();
-
+    // Start the API server
     start_server(pool).await
 }
