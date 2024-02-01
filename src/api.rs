@@ -1,7 +1,3 @@
-// web api endpoints
-// POST /api/transform/rotate for a rotate tool.
-// POST /api/filter/blur for applying a blur filter.
-// use crate::db::{ add_user, create_pool };
 use crate::db;
 use crate::db::*; // QUEST: Am I exposing all db.rs funcs by doing this?
 use actix_web::{web, App, http, HttpResponse, HttpServer, Responder, test};
@@ -9,6 +5,15 @@ use deadpool_postgres::{Config, Pool};
 use serde::Deserialize;
 use serde_json::json;
 use tokio_postgres::{Error, NoTls, Row};
+
+// use crate::db::users::*;
+// use crate::db::sessions;
+
+// TODO: include all the following endpoints
+// web api endpoints
+// POST /api/transform/rotate for a rotate tool.
+// POST /api/filter/blur for applying a blur filter.
+// use crate::db::{ add_user, create_pool };
 
 //////////////////////////////////////////////////////////////////////////////////
 ///////////////// ******* Function to start the server ******* ///////////////////
@@ -94,7 +99,7 @@ impl From<postgres::Error> for MyError
 /// "User added successfully with ID: 1"
 async fn add_user_handler(pool: web::Data<Pool>, new_user: web::Json<NewUser>) -> HttpResponse
 {
-    match db::add_user(&pool, &new_user.username, &new_user.email).await
+    match db::users::add_user(&pool, &new_user.username, &new_user.email).await
     {
         Ok( user_id) => HttpResponse::Ok().json( format!("User added successfully with ID: {}", user_id )),
         Err(MyDbError::PostgresError(e)) =>
@@ -136,7 +141,7 @@ struct NewUser
 async fn get_user_handler(pool: web::Data<Pool>, path: web::Path<(String,)>) -> HttpResponse
 {
     let username = &path.into_inner().0;
-    match db::get_user_by_username(&pool, username).await
+    match db::users::get_user_by_username(&pool, username).await
     {
         // Ok(user) => HttpResponse::Ok().json(user),
         Ok(user) => HttpResponse::Ok().body(format!("This is the requested user: {}", user)),
@@ -162,7 +167,7 @@ async fn get_user_handler(pool: web::Data<Pool>, path: web::Path<(String,)>) -> 
 //////////////////////////////////////////////////////////////////////////////////
 async fn get_all_users_handler(pool: web::Data<Pool>) -> HttpResponse
 {
-    match db::get_all_users(&pool).await
+    match db::users::get_all_users(&pool).await
     {
         Ok(users) => {
             let response = json!({
@@ -182,7 +187,7 @@ async fn delete_user_handler(pool: web::Data<Pool>, path: web::Path<(String,)>) 
 {
     let username = &path.into_inner().0;
 
-    match db::delete_user(&pool, username).await
+    match db::users::delete_user(&pool, username).await
     {
         Ok(_) => HttpResponse::Ok().json("User deleted successfully"),
         Err(MyDbError::NotFound) => HttpResponse::NotFound().json("User not found"),
@@ -216,7 +221,7 @@ async fn update_user_email_handler(pool: web::Data<Pool>,
 {
     let username = path.into_inner();
 
-    match db::update_user_email(&pool, &username, &new_email).await
+    match db::users::update_user_email(&pool, &username, &new_email).await
     {
         Ok(_) => HttpResponse::Ok().json("User email changed successfully"),
         Err(MyDbError::NotFound) => HttpResponse::NotFound().json("User not found"),
@@ -270,7 +275,7 @@ async fn add_image_handler(pool: web::Data<Pool>, image_path: String, user_id: i
                            -> HttpResponse
 {
     // Fetch session ID
-    let session_id = match db::get_session_id_for_user(&pool, user_id).await {
+    let session_id = match db::sessions::get_session_id_for_user(&pool, user_id).await {
         Ok(id) => id,
         Err(_) => {
             return HttpResponse::InternalServerError()
@@ -279,7 +284,7 @@ async fn add_image_handler(pool: web::Data<Pool>, image_path: String, user_id: i
     };
 
     // Call the associated function from db.rs
-    match db::add_image(&pool, session_id, &image_path).await
+    match db::images::add_image(&pool, session_id, &image_path).await
     {
         Ok(image_id) =>
         {
@@ -293,7 +298,7 @@ async fn add_image_handler(pool: web::Data<Pool>, image_path: String, user_id: i
 // QUEST: should this return a vector instead of HttpResonse?
 async fn get_single_image_handler(pool: web::Data<Pool>, image_id: i32) -> HttpResponse
 {
-    match db::get_single_image(&pool, image_id).await
+    match db::images::get_single_image(&pool, image_id).await
     {
         Ok(image) => HttpResponse::Ok().json(image), // Return the image data
         Err(MyDbError::NotFound) => HttpResponse::NotFound().json("Image not found."),
@@ -306,7 +311,7 @@ async fn get_all_images_handler(pool: web::Data<Pool>, user_id: i32) -> HttpResp
 {
     // FIXME: Assuming user_id is extracted from authenticated session
 
-    match db::get_all_images(&pool, user_id).await
+    match db::images::get_all_images(&pool, user_id).await
     {
         Ok(images) => HttpResponse::Ok().json(images), // Return the actual images
         Err(MyDbError::NotFound) => HttpResponse::NotFound().json("No images found for this user."),
@@ -323,7 +328,7 @@ async fn update_image_handler(pool: web::Data<Pool>,
                               new_image_path: String)
                               -> HttpResponse
 {
-    match db::update_image(&pool, image_id, &new_image_path).await
+    match db::images::update_image(&pool, image_id, &new_image_path).await
     {
         Ok(_) => HttpResponse::Ok().json("Image path has been updated."),
         Err(MyDbError::NotFound) => HttpResponse::NotFound().json("Image NOT found."),
@@ -337,7 +342,7 @@ async fn delete_image_handler(pool: web::Data<Pool>, image_id: web::Path<(i32)>)
     let image_id = image_id.into_inner();
     // Add authorization and validation logic stuff here
 
-    match db::delete_image(&pool, image_id).await
+    match db::images::delete_image(&pool, image_id).await
     {
         Ok(_) => HttpResponse::Ok().json(format!("Image with ID {} was deleted succesfully!",
                                                  image_id.to_string())),
@@ -360,7 +365,7 @@ async fn add_layer_handler(pool: web::Data<Pool>,
                            order: i32)
                            -> HttpResponse
 {
-    match db::add_layer(&pool, image_id, layer_name, layer_type, layer_data, order).await
+    match db::layers::add_layer(&pool, image_id, layer_name, layer_type, layer_data, order).await
     {
         Ok(_) => HttpResponse::Ok().json("Image Layer was added successfully!"),
         Err(MyDbError::NotFound) => HttpResponse::NotFound().json("Layer not added!"),
@@ -399,7 +404,7 @@ mod tests
         {
             let username = format!("user_{}", rand::random::<u32>());
             let email = format!("{}@example.com", username);
-            let user_id = add_user(pool, &username, &email).await?;
+            let user_id = db::users::add_user(pool, &username, &email).await?;
             Ok(TestUser { username,
                           email,
                           user_id })
@@ -408,7 +413,7 @@ mod tests
         // Cleanup test user in database
         async fn cleanup(self, pool: &Pool) -> Result<(), MyDbError>
         {
-            delete_user(pool, &self.username).await?;
+            db::users::delete_user(pool, &self.username).await?;
             Ok(())
         }
     }
@@ -428,10 +433,10 @@ mod tests
     }
     /////////////////////// ********** Helper Functions ********** ///////////////
     /// Helper function to create a test session    //////////////////////////////
-    async fn create_test_session(pool: &Pool, user_id: i32) -> Result<i32, MyDbError>
-    {
-        db::create_session(pool, user_id).await
-    }
+    // async fn create_test_session(pool: &Pool, user_id: i32) -> Result<i32, MyDbError>
+    // {
+    //     db::sessions::create_session(pool, user_id).await
+    // }
     // /////////////////////// ********** User Tests ********** /////////////////////
     // async fn create_test_user( pool: &Pool ) -> Result<i32, MyDbError> {
     //     let username = format!("user_{}", rand::random::<u32>());

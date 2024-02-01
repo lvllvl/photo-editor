@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 mod api;
-mod db;
-use db::*;
+mod db; // Declare the db module 
+use db::create_pool;
 // use db::{ setup_database, create_pool, add_image };
 use api::start_server;
 use deadpool_postgres::{Config, Pool};

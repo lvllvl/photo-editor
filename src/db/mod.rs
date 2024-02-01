@@ -1,6 +1,10 @@
 #![allow(dead_code)]
 pub mod users;
 pub mod images;
+pub mod sessions;
+pub mod layers;
+// ... other module declarations ...
+
 
 use chrono::{DateTime, Duration, Utc};
 use deadpool_postgres::{Config, Pool};
@@ -102,7 +106,31 @@ pub async fn setup_database(client: &mut deadpool_postgres::Client) -> Result<()
 
     Ok(())
 }
+// TODO: move to sessions.rs
+// // end_session: for an individual  ///////////////////////////////////////////////
+// pub async fn end_session(pool: &Pool, user_id: i32) -> Result<(), MyDbError> {
+//     // Fetch a database connection from the pool
+//     let client = pool.get().await?;
 
+//     // Prep the SQL query to update the session
+//     let statement = client
+//         .prepare("UPDATE session SET end_time = NOW() WHERE id = $1")
+//         .await?;
+
+//     let session_id = get_session_id_for_user(&pool, user_id).await?;
+
+//     // Execute the query
+//     let result = client.execute(&statement, &[&session_id]).await?;
+
+//     // Check if any rows were affected
+//     if result == 0 {
+//         // No rows were updated, session not found or already ended
+//         Err(MyDbError::NotFound)
+//     } else {
+//         // Session succesfully ended
+//         Ok(())
+//     }
+// }
 //////////////////////////////////////////////////////////////////////////////////
 //////////// ********** Error Handling ********** ////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////
@@ -140,3 +168,20 @@ impl fmt::Display for MyDbError {
         write!( f, "Database error: {:?}", self )
     }
 }
+
+//////////////////////////////////////////////////////////////////////////////////
+//////////// ********** Analytics & Reports ********** ///////////////////////////
+//////////////////////////////////////////////////////////////////////////////////
+
+// TODO: user_activity_report: generate reports on user activity ///////////////////////
+// TODO: image_statistics: get statistics on image uploads, edits, etc. ////////////////
+
+//////////////////////////////////////////////////////////////////////////////////
+//////////// ********** DB Health & Maintenance********** ////////////////////////
+//////////////////////////////////////////////////////////////////////////////////
+
+// TODO: check_db_health: check database health ////////////////////////////////////////
+// TODO: backup_db: backup database ////////////////////////////////////////////////////
+// TODO: restore_db: restore database //////////////////////////////////////////////////
+// TODO: delete_db: delete database ////////////////////////////////////////////////////
+// TODO: clean_db: clean database, optimize, etc. //////////////////////////////////////
