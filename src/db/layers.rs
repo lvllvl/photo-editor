@@ -1,13 +1,15 @@
 #![allow(dead_code)]
 use super::MyDbError;
-use chrono::{DateTime, Duration, Utc};
-use deadpool_postgres::{Config, Pool};
-// use postgres::types::ToSql;
+use deadpool_postgres::Pool;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use std::collections::HashMap;
-use tokio_postgres::{Error, NoTls, Row};
-use std::fmt;
+use tokio_postgres::Row;
+// use serde_json::json;
+// use tokio_postgres::{Error, NoTls, Row};
+// use std::fmt;
+// use deadpool_postgres::{Config, Pool};
+// use postgres::types::ToSql;
+// use chrono::{DateTime, Duration, Utc};
 
 //////////////////////////////////////////////////////////////////////////////////
 //////////// ********** Layer Management Functions ********** ////////////////////
@@ -24,13 +26,13 @@ pub async fn add_layer(
 ) -> Result<(), MyDbError> {
     let client = pool.get().await?;
     let statement = client
-        .prepare( "INSERT INTO layers (image_id, layer_name, layer_type, layer_data) VALUES ($1, $2, $3, $4)")
+        .prepare( "INSERT INTO layers (image_id, layer_name, layer_type, layer_data, layer_order ) VALUES ($1, $2, $3, $4, $5)")
         .await?;
 
     client
         .execute(
             &statement,
-            &[&image_id, &layer_name, &layer_type, &layer_data],
+            &[&image_id, &layer_name, &layer_type, &layer_data, &layer_order],
         )
         .await?;
     Ok(())
@@ -179,8 +181,8 @@ pub async fn update_layer(
     new_layer_name: &str,
     new_layer_type: &str,
     new_layer_data: &[u8],
-    new_layer_order: i32,
-) -> Result<(), MyDbError> {
+    new_layer_order: i32)
+-> Result<(), MyDbError> {
     let client = pool.get().await?;
     let statement = client
         .prepare(
@@ -190,7 +192,7 @@ pub async fn update_layer(
     let result = client
         .execute(
             &statement,
-            &[&new_layer_name, &new_layer_type, &new_layer_data, &id],
+            &[&id, &new_layer_name, &new_layer_type, &new_layer_data, &new_layer_data],
         )
         .await?;
 

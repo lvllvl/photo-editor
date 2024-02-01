@@ -86,7 +86,7 @@ async fn get_all_images_handler(pool: web::Data<Pool>, user_id: i32) -> HttpResp
 // TODO: what other updates would take place? Adjust this fucntion to reflect that
 // e.g., any image change
 async fn update_image_handler(pool: web::Data<Pool>,
-                              _path: web::Path<String>,
+                            //   _path: web::Path<String>,
                               image_id: i32,
                               new_image_path: String)
                               -> HttpResponse

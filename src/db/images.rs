@@ -1,14 +1,14 @@
 #![allow(dead_code)]
-
 use super::MyDbError;
-use chrono::{DateTime, Duration, Utc};
-use deadpool_postgres::{Config, Pool};
-// use postgres::types::ToSql;
+use deadpool_postgres::Pool;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
-use std::collections::HashMap;
-use tokio_postgres::{Error, NoTls, Row};
-use std::fmt;
+// use chrono::{DateTime, Duration, Utc};
+// use deadpool_postgres::{Config, Pool};
+// use postgres::types::ToSql;
+// use serde_json::json;
+// use std::collections::HashMap;
+// use tokio_postgres::{Error, NoTls, Row};
+// use std::fmt;
 
 //////////////////////////////////////////////////////////////////////////////////
 //////////// ********** Image Management Functions ********** ////////////////////

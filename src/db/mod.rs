@@ -6,13 +6,15 @@ pub mod layers;
 // ... other module declarations ...
 
 
-use chrono::{DateTime, Duration, Utc};
+// use chrono::{DateTime, Duration, Utc};
 use deadpool_postgres::{Config, Pool};
 // use postgres::types::ToSql;
-use serde::{Deserialize, Serialize};
-use serde_json::json;
-use std::collections::HashMap;
-use tokio_postgres::{Error, NoTls, Row};
+// use serde::{Deserialize, Serialize};
+// use serde_json::json;
+// use std::collections::HashMap;
+// use tokio_postgres::{Error, NoTls, Row};
+use tokio_postgres::{Error, NoTls };
+// use tokio_postgres::Row;
 use std::fmt;
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -83,27 +85,27 @@ pub async fn setup_database(client: &mut deadpool_postgres::Client) -> Result<()
     //     .await?;
     // println!("images table created successfully.");
 
-    // // Create Layers Table //////////////////////////////////////////////////////
-    // client
-    //     .batch_execute(
-    //         "
-    //     CREATE TABLE IF NOT EXISTS layers (
-    //         id              SERIAL PRIMARY KEY,
-    //         image_id        INTEGER REFERENCES images,
-    //         layer_name      VARCHAR( 255 ),
-    //         creation_date   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    //         last_modified   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    //         user_id         INTEGER REFERENCES users,
-    //         layer_type      VARCHAR( 50 ),
-    //         visibility      BOOLEAN DEFAULT TRUE,
-    //         opacity         FLOAT DEFAULT 100,
-    //         layer_data      BYTEA,
-    //         layer_order     INTEGER
-    //     );  
-    // ",
-    //     )
-    //     .await?;
-    // println!("layers table created successfully.");
+    // Create Layers Table //////////////////////////////////////////////////////
+    client
+        .batch_execute(
+            "
+        CREATE TABLE IF NOT EXISTS layers (
+            id              SERIAL PRIMARY KEY,
+            image_id        INTEGER REFERENCES images,
+            layer_name      VARCHAR( 255 ),
+            creation_date   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_modified   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            user_id         INTEGER REFERENCES users,
+            layer_type      VARCHAR( 50 ),
+            visibility      BOOLEAN DEFAULT TRUE,
+            opacity         FLOAT DEFAULT 100,
+            layer_data      BYTEA,
+            layer_order     INTEGER
+        );  
+    ",
+        )
+        .await?;
+    println!("layers table created successfully.");
 
     Ok(())
 }
