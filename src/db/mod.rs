@@ -50,22 +50,22 @@ pub async fn setup_database(client: &mut deadpool_postgres::Client) -> Result<()
         .await?;
     println!("Users table created successfully.");
 
-    // // Create Session Table //////////////////////////////////////////////////////
-    // client
-    //     .batch_execute(
-    //         "
-    //     CREATE TABLE IF NOT EXISTS sessions (
-    //         id              SERIAL PRIMARY KEY,
-    //         user_id         INTEGER REFERENCES users(id),
-    //         creation_time   TIMESTAMP NOT NULL,
-    //         expiration_time TIMESTAMP NOT NULL,
-    //         last_activity   TIMESTAMP NOT NULL,
-    //         session_data    JSONB
-    //     )
-    // ",
-    //     )
-    //     .await?;
-    // println!("Sessions table created successfully.");
+    // Create Session Table //////////////////////////////////////////////////////
+    client
+        .batch_execute(
+            "
+        CREATE TABLE IF NOT EXISTS sessions (
+            id              SERIAL PRIMARY KEY,
+            user_id         INTEGER REFERENCES users(id),
+            creation_time   TIMESTAMP NOT NULL,
+            expiration_time TIMESTAMP NOT NULL,
+            last_activity   TIMESTAMP NOT NULL,
+            session_data    JSONB
+        )
+    ",
+        )
+        .await?;
+    println!("Sessions table created successfully.");
 
     // // Create Image Table ///////////////////////////////////////////////////////
     // client

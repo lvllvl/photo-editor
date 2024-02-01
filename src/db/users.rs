@@ -127,10 +127,22 @@ pub async fn delete_user(pool: &Pool, username: &str) -> Result<(), MyDbError> {
     }
 }
 
+/// Delete ALL users from the database ////////////////////////////////////////////
+pub async fn delete_all_users( pool: &Pool ) -> Result< (), MyDbError > {
+    let client = pool.get().await?;
+    let statement = client.prepare( "DELETE FROM users" ).await?;
+    let result = client.execute( &statement, &[] ).await?;
+
+    if result == 0 {
+        Err( MyDbError::NotFound )
+    } else {
+        Ok(())
+    }
+}
+
 //////////////////////////////////////////////////////////////////////////////////
 //////////// ********** User Representation ********** ///////////////////////////
 //////////////////////////////////////////////////////////////////////////////////
-
 // Struct to represent a user ////////////////////////////////////////////////////
 #[derive(Debug, Serialize, Deserialize,)]
 pub struct User {
