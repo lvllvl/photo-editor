@@ -1,10 +1,11 @@
 use crate::db;
-use crate::db::*; 
-use actix_web::{web, App, http, HttpResponse, HttpServer, Responder, test};
-use deadpool_postgres::{Config, Pool};
+use actix_web::{web, HttpResponse};
+// use actix_web::{web, App, http, HttpResponse, HttpServer, Responder, test};
+use deadpool_postgres::Pool;
+// use deadpool_postgres::{Config, Pool};
 use serde::Deserialize;
 use serde_json::json;
-use tokio_postgres::{Error, NoTls, Row};
+// use tokio_postgres::{Error, NoTls, Row};
 
 use super::MyDbError;
 //////////////////////////////////////////////////////////////////////////////////
@@ -200,5 +201,15 @@ pub async fn update_user_email_handler(pool: web::Data<Pool>,
         Ok(_) => HttpResponse::Ok().json(format!("User: {} email changed successfully", username)),
         Err(MyDbError::NotFound) => HttpResponse::NotFound().json("User not found"),
         Err(_) => HttpResponse::InternalServerError().json("Internal server error"),
+    }
+}
+
+/// Delete all users ////////////////////////////////////////////////////////////
+pub async fn delete_all_users_handler( pool: web::Data<Pool> ) -> HttpResponse
+{
+    match db::users::delete_all_users( &pool ).await
+    {
+        Ok(_) => HttpResponse::Ok().json( "All users deleted successfully" ),
+        Err(_) => HttpResponse::InternalServerError().json( "Internal server error" ),
     }
 }

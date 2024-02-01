@@ -1,16 +1,18 @@
-pub mod users;
-pub mod images;
-// pub mod sessions;
-// pub mod layers;
+pub mod api_users;
+pub mod api_images;
+// pub mod api_sessions;
+// pub mod api_layers;
 
 // use crate::db;
 use crate::db::*;
 
-use actix_web::{web, App, http, HttpResponse, HttpServer, Responder, test};
-use deadpool_postgres::{Config, Pool};
-use serde::Deserialize;
-use serde_json::json;
-use tokio_postgres::{Error, NoTls, Row};
+use actix_web::{web, App, HttpResponse, HttpServer, Responder};
+// use actix_web::{web, App, http, HttpResponse, HttpServer, Responder, test};
+// use deadpool_postgres::{Config, Pool};
+use deadpool_postgres::Pool;
+// use serde::Deserialize;
+// use serde_json::json;
+// use tokio_postgres::{Error, NoTls, Row};
 
 // use crate::db::users::*;
 // use crate::db::sessions;
@@ -29,12 +31,13 @@ pub async fn start_server(pool: Pool) -> Result<(), MyError>
     HttpServer::new(move || {
         App::new().app_data(web::Data::new(pool.clone()))
                   .route("/", web::get().to(index))
-                  .route("/add_user", web::post().to(users::add_user_handler))
-                  .route("get_user_by_username/{username}", web::get().to(users::get_user_handler))
-                  .route( "/get_user_by_email/{email}", web::get().to(users::get_user_by_email_handler))
-                  .route("/users", web::get().to(users::get_all_users_handler)) // TODO: remove this in PROD
-                  .route("/user/{username}/update_email", web::put().to( users::update_user_email_handler ))
-                  .route( "/delete_user/{username}", web::delete().to( users::delete_user_handler )) 
+                  .route("/add_user", web::post().to(api_users::add_user_handler))
+                  .route("get_user_by_username/{username}", web::get().to(api_users::get_user_handler))
+                  .route( "/get_user_by_email/{email}", web::get().to(api_users::get_user_by_email_handler))
+                  .route("/users", web::get().to(api_users::get_all_users_handler)) // TODO: remove this in PROD
+                  .route("/user/{username}/update_email", web::put().to( api_users::update_user_email_handler ))
+                  .route( "/delete_user/{username}", web::delete().to( api_users::delete_user_handler )) 
+                  .route("/delete_all_users", web::delete().to(api_users::delete_all_users_handler)) // TODO: remove this in PROD
                 
                 // Other routes
     // TODO: Does this number/address need to change in PROD?

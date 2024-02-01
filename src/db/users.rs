@@ -1,7 +1,7 @@
 use super::MyDbError;
-use deadpool_postgres::{Pool, Client};
+use deadpool_postgres::Pool;
 use serde::{Deserialize, Serialize};
-use tokio_postgres::{Error, NoTls, Row};
+use tokio_postgres::Row;
 use std::fmt;
 
 //////////////////////////////////////////////////////////////////////////////////

@@ -1,10 +1,11 @@
-#![allow(dead_code)]
 mod api;
-mod db; // Declare the db module 
+mod db;
+
 use db::create_pool;
 use api::start_server;
-use deadpool_postgres::{Config, Pool};
 use dotenv::dotenv;
+
+// use deadpool_postgres::{Config, Pool};
 
 #[tokio::main]
 async fn main() -> Result<(), api::MyError>
@@ -16,6 +17,7 @@ async fn main() -> Result<(), api::MyError>
 
     // Create the database connection pool
     let pool = create_pool();
+
     // Start the API server
     start_server(pool).await
 }

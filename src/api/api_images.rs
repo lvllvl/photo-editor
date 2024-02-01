@@ -1,11 +1,13 @@
 use crate::db;
-use crate::db::*; 
-use actix_web::{web, App, http, HttpResponse, HttpServer, Responder, test};
-use deadpool_postgres::{Config, Pool};
-use serde::Deserialize;
-use serde_json::json;
-use tokio_postgres::{Error, NoTls, Row};
+use actix_web::{web, HttpResponse };
+// use actix_web::{web, App, http, HttpResponse, HttpServer, Responder, test};
+// use deadpool_postgres::{Config, Pool};
+use deadpool_postgres::Pool;
+// use serde::Deserialize;
+// use serde_json::json;
+// use tokio_postgres::{Error, NoTls, Row};
 use super::MyDbError;
+
 //////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////
 ////////////// *****  Image Route Handler Functions ***** ////////////////////////
@@ -84,7 +86,7 @@ async fn get_all_images_handler(pool: web::Data<Pool>, user_id: i32) -> HttpResp
 // TODO: what other updates would take place? Adjust this fucntion to reflect that
 // e.g., any image change
 async fn update_image_handler(pool: web::Data<Pool>,
-                              path: web::Path<String>,
+                              _path: web::Path<String>,
                               image_id: i32,
                               new_image_path: String)
                               -> HttpResponse
@@ -98,7 +100,7 @@ async fn update_image_handler(pool: web::Data<Pool>,
 }
 
 /// Delete image: Take an image within the database and delete it.
-async fn delete_image_handler(pool: web::Data<Pool>, image_id: web::Path<(i32)>) -> HttpResponse
+async fn delete_image_handler(pool: web::Data<Pool>, image_id: web::Path<i32>) -> HttpResponse
 {
     let image_id = image_id.into_inner();
     // Add authorization and validation logic stuff here
