@@ -1,5 +1,5 @@
 use crate::db;
-use crate::db::*; // QUEST: Am I exposing all db.rs funcs by doing this?
+use crate::db::*; 
 use actix_web::{web, App, http, HttpResponse, HttpServer, Responder, test};
 use deadpool_postgres::{Config, Pool};
 use serde::Deserialize;
@@ -28,6 +28,9 @@ pub async fn start_server(pool: Pool) -> Result<(), MyError>
                   .route("/user/{username}", web::delete().to(delete_user_handler))
                   .route("/user/{username}/update_email", web::put().to( update_user_email_handler ))
                   .route("/users", web::get().to(get_all_users_handler)) // TODO: remove this in PROD
+                  .route( "/get_user_by_email/{email}", web::get().to(get_user_by_email_handler))
+                  .route( "/delete_user/{username}", web::delete().to(delete_user_handler)) 
+// async fn delete_user_handler(pool: web::Data<Pool>, path: web::Path<(String,)>) -> HttpResponse
         // Other routes
     }).bind("127.0.0.1:8080")? // TODO: Does this need to change in PROD?
       .run()
@@ -181,16 +184,55 @@ async fn get_all_users_handler(pool: web::Data<Pool>) -> HttpResponse
     }
 }
 
+/// Get user by email
+/// 
+/// # Arguements
+/// 
+/// * 'pool' - A reference to the database connection pool.
+/// * 'email' - A web::Path tuple containing the email.
+/// 
+/// # Returns
+/// 
+/// Return the user data if successful.
+/// 
+/// # Example Request
+/// 
+/// GET /get_user_by_email/{email}/
+async fn get_user_by_email_handler(pool: web::Data<Pool>, email: web::Path<(String,)>) -> HttpResponse
+{
+    let email = &email.into_inner().0;
+    match db::users::get_user_by_email(&pool, email).await
+    {
+        Ok(user) => HttpResponse::Ok().json(user),
+        Err(MyDbError::NotFound) => HttpResponse::NotFound().json("User not found"),
+        Err(_) => HttpResponse::InternalServerError().json("Internal server error"),
+    }
+}
+
 /// Delete user by username //////////////////////////////////////
 /// This is for user account deletion.
+/// 
+/// # Arguements
+/// 
+///     * 'pool' - A reference to the database connection pool.
+///    * 'path' - A web::Path tuple containing the username.
+/// 
+/// # Returns
+/// 
+/// Return an HttpResponse indicating the outcome of the operation.
+/// 
+/// # Example Request
+/// 
+/// DELETE /delete_user/{username}
+/// curl -X DELETE http://localhost:8080/delete_user/{username}
 async fn delete_user_handler(pool: web::Data<Pool>, path: web::Path<(String,)>) -> HttpResponse
 {
     let username = &path.into_inner().0;
 
     match db::users::delete_user(&pool, username).await
     {
-        Ok(_) => HttpResponse::Ok().json("User deleted successfully"),
-        Err(MyDbError::NotFound) => HttpResponse::NotFound().json("User not found"),
+        Ok(_) => HttpResponse::Ok().json( format!("User deleted successfully: {}", username )),
+        Err(MyDbError::NotFound) => HttpResponse::NotFound().json(format!("User: {}, not found", username)),
         Err(_) => HttpResponse::InternalServerError().json("Internal server error"),
     }
 }

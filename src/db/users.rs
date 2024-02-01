@@ -43,6 +43,7 @@ pub async fn get_user_by_username(
         Err(MyDbError::NotFound)
     }
 }
+
 // Get a user by email from the database /////////////////////////////////////////
 pub async fn get_user_by_email(pool: &Pool, email: &str) -> Result<User, MyDbError> {
 
@@ -58,6 +59,7 @@ pub async fn get_user_by_email(pool: &Pool, email: &str) -> Result<User, MyDbErr
         Err(MyDbError::NotFound)
     }
 }
+
 // Get all users from the database ///////////////////////////////////////////////
 pub async fn get_all_users(pool: &Pool) -> Result<Vec<User>, MyDbError> {
 
