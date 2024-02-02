@@ -53,23 +53,40 @@ pub async fn setup_database(client: &mut deadpool_postgres::Client) -> Result<()
     println!("Users table created successfully.");
 
     // Create Session Table //////////////////////////////////////////////////////
+    // client
+    //     .batch_execute(
+    //         "
+    //     CREATE TABLE IF NOT EXISTS sessions (
+    //         id              SERIAL PRIMARY KEY,
+    //         user_id         INTEGER REFERENCES users(id),
+    //         creation_time   TIMESTAMP NOT NULL,
+    //         expiration_time TIMESTAMP NOT NULL,
+    //         last_activity   TIMESTAMP NOT NULL,
+    //         session_data    JSONB
+    //     )
+    // ",
+    //     )
+    //     .await?;
+    // println!("Sessions table created successfully.");
+
+    // Create Image Table ///////////////////////////////////////////////////////
+    // This table does NOT use session_id as a foreign key
     client
         .batch_execute(
             "
-        CREATE TABLE IF NOT EXISTS sessions (
+        CREATE TABLE IF NOT EXISTS images (
             id              SERIAL PRIMARY KEY,
             user_id         INTEGER REFERENCES users(id),
-            creation_time   TIMESTAMP NOT NULL,
-            expiration_time TIMESTAMP NOT NULL,
-            last_activity   TIMESTAMP NOT NULL,
-            session_data    JSONB
+            file_type       VARCHAR NOT NULL,
+            file_path       VARCHAR NOT NULL,
+            created_at      TIMESTAMP NOT NULL,
+            updated_at      TIMESTAMP NOT NULL
         )
     ",
         )
         .await?;
-    println!("Sessions table created successfully.");
-
-    // // Create Image Table ///////////////////////////////////////////////////////
+    println!("images table created successfully.");
+    
     // client
     //     .batch_execute(
     //         "
@@ -86,26 +103,26 @@ pub async fn setup_database(client: &mut deadpool_postgres::Client) -> Result<()
     // println!("images table created successfully.");
 
     // Create Layers Table //////////////////////////////////////////////////////
-    client
-        .batch_execute(
-            "
-        CREATE TABLE IF NOT EXISTS layers (
-            id              SERIAL PRIMARY KEY,
-            image_id        INTEGER REFERENCES images,
-            layer_name      VARCHAR( 255 ),
-            creation_date   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            last_modified   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            user_id         INTEGER REFERENCES users,
-            layer_type      VARCHAR( 50 ),
-            visibility      BOOLEAN DEFAULT TRUE,
-            opacity         FLOAT DEFAULT 100,
-            layer_data      BYTEA,
-            layer_order     INTEGER
-        );  
-    ",
-        )
-        .await?;
-    println!("layers table created successfully.");
+    // client
+    //     .batch_execute(
+    //         "
+    //     CREATE TABLE IF NOT EXISTS layers (
+    //         id              SERIAL PRIMARY KEY,
+    //         image_id        INTEGER REFERENCES images,
+    //         layer_name      VARCHAR( 255 ),
+    //         creation_date   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    //         last_modified   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    //         user_id         INTEGER REFERENCES users,
+    //         layer_type      VARCHAR( 50 ),
+    //         visibility      BOOLEAN DEFAULT TRUE,
+    //         opacity         FLOAT DEFAULT 100,
+    //         layer_data      BYTEA,
+    //         layer_order     INTEGER
+    //     );  
+    // ",
+    //     )
+    //     .await?;
+    // println!("layers table created successfully.");
 
     Ok(())
 }

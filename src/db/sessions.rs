@@ -16,6 +16,38 @@ use tokio_postgres::Row;
 // use dotenv::dotenv;
 // use std::env;
 
+/// Create a single session for a user ////////////////////////////////////////////
+/// 
+/// Triggers when:
+///     - A user logs in 
+///     - A user logs in with a "remember me" option
+///    - A user logs in with a "keep me logged in" option
+///    - A user creates a new account
+// pub async fn create_a_sessioon( pool: &Pool ) -> Result<Session, MyDbError> {
+    
+//     // let client = pool.get().await?;
+//     // let statement = client
+//     //     .prepare("INSERT INTO sessions (user_id, creation_time, expiration_time, last_activity, session_data) VALUES ($1, $2, $3, $4, $5) RETURNING *")
+//     //     .await?;
+
+//     // // let session_data = serde_json::json!({
+//     // //     "user_id": 1,
+//     // //     "username": "user1",
+//     // //     "email": "" 
+//     // // });
+    
+//     // // match client.query(&statement, &[&1, &Utc::now(), &Utc::now(), &Utc::now(), &session_data]).await {
+//     // //     Ok(rows) => {
+//     // //         if let Some(row) = rows.into_iter().next() {
+//     // //             Ok(Session::from_row(&row)?)
+//     // //         } else {
+//     // //             Err(MyDbError::NotFound)
+//     // //         }
+//     // //     }
+//     // //     Err(e) => Err(MyDbError::DbError(e.to_string())),
+    
+// }
+
 /// Get a user_id ( i32 ) by providing the session_id (i32) 
 pub async fn get_user_id_by_session_id( pool: &Pool, session_id: i32 ) -> Result< i32, MyDbError > {
     let client = pool.get().await?;

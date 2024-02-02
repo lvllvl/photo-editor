@@ -76,6 +76,7 @@ pub async fn get_all_users(pool: &Pool) -> Result<Vec<User>, MyDbError> {
     Ok(users)
 }
 
+
 // TODO: Retrieve users based on various filters e.g., age, location, etc. ///////
 // TODO: Retrieve recent users, from a certain timeframe /////////////////////////
 

@@ -15,14 +15,16 @@ use serde::{Deserialize, Serialize};
 //////////////////////////////////////////////////////////////////////////////////
 
 // add_image: add new image to database //////////////////////////////////////////
-pub async fn add_image(pool: &Pool, session_id: i32, file_path: &str) -> Result<i32, MyDbError> {
+pub async fn add_image(pool: &Pool, file_path: &str, user_id: i32, file_type: &str ) -> Result<i32, MyDbError> {
     let client = pool.get().await?;
     let statement = client
-        .prepare("INSERT INTO images (session_id, file_path, created_at, updated_at) VALUES ( $1, $2, NOW(), NOW() ) RETURNING id")
+        .prepare(
+            "INSERT INTO images (user_id, file_type, file_path, created_at, updated_at) VALUES ( $1, $2, $3, NOW(), NOW() ) RETURNING id"
+        )
         .await
         .map_err( MyDbError::PostgresError )?;
 
-    match client.query_one(&statement, &[&session_id, &file_path]).await {
+    match client.query_one(&statement, &[&user_id, &file_type, &file_path]).await {
 
         Ok(row) => {
             let image_id: i32 = row.get(0);
@@ -35,13 +37,6 @@ pub async fn add_image(pool: &Pool, session_id: i32, file_path: &str) -> Result<
             Err(MyDbError::NotFound)
         }
     }
-        // CREATE TABLE IF NOT EXISTS images (
-        //     id              SERIAL PRIMARY KEY,
-        //     session_id      INTEGER REFERENCES sessions,
-        //     file_path       VARCHAR NOT NULL,
-        //     created_at      TIMESTAMP NOT NULL,
-        //     updated_at      TIMESTAMP NOT NULL
-        // )
 }
 
 // get_all_images: all images associated with a user_id ///////////////////////////////
