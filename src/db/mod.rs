@@ -53,21 +53,21 @@ pub async fn setup_database(client: &mut deadpool_postgres::Client) -> Result<()
     println!("Users table created successfully.");
 
     // Create Session Table //////////////////////////////////////////////////////
-    // client
-    //     .batch_execute(
-    //         "
-    //     CREATE TABLE IF NOT EXISTS sessions (
-    //         id              SERIAL PRIMARY KEY,
-    //         user_id         INTEGER REFERENCES users(id),
-    //         creation_time   TIMESTAMP NOT NULL,
-    //         expiration_time TIMESTAMP NOT NULL,
-    //         last_activity   TIMESTAMP NOT NULL,
-    //         session_data    JSONB
-    //     )
-    // ",
-    //     )
-    //     .await?;
-    // println!("Sessions table created successfully.");
+    client
+        .batch_execute(
+            "
+        CREATE TABLE IF NOT EXISTS sessions (
+            id              SERIAL PRIMARY KEY,
+            user_id         INTEGER REFERENCES users(id),
+            creation_time   TIMESTAMP NOT NULL,
+            expiration_time TIMESTAMP NOT NULL,
+            last_activity   TIMESTAMP NOT NULL,
+            session_data    JSONB
+        )
+    ",
+        )
+        .await?;
+    println!("Sessions table created successfully.");
 
     // Create Image Table ///////////////////////////////////////////////////////
     // This table does NOT use session_id as a foreign key
@@ -157,10 +157,12 @@ pub async fn setup_database(client: &mut deadpool_postgres::Client) -> Result<()
 #[derive(Debug)]
 pub enum MyDbError {
     PostgresError(postgres::Error),
-    PoolError(deadpool::managed::PoolError<postgres::Error>),
+    PoolError( deadpool::managed::PoolError<postgres::Error> ),
+    // PoolError( tokio_postgres::Error ),
+    QueryError( tokio_postgres::Error ),
+    SerializeError( serde_json::error::Error ),
     NotFound,
     JsonError(String),
-    // ... other error types as needed
 }
 
 impl From<serde_json::Error> for MyDbError {

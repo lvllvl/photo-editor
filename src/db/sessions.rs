@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 use super::MyDbError;
+use std::time::{ SystemTime, UNIX_EPOCH };
+// use tokio_postgres::types::Json;
 // use chrono::{DateTime, Duration, Utc};
 use chrono::{DateTime, Utc};
 // use deadpool_postgres::{Config, Pool};
@@ -23,6 +25,29 @@ use tokio_postgres::Row;
 ///     - A user logs in with a "remember me" option
 ///    - A user logs in with a "keep me logged in" option
 ///    - A user creates a new account
+
+pub async fn create_a_session( pool: &Pool, user_id: i32, session_data: serde_json::Value ) -> Result< Session, MyDbError > {
+
+    let client = pool.get().await.map_err(MyDbError::PoolError)?; // .map_err(MyDbError::PoolError)?; // .await?;
+    let statement = client
+        .prepare( "INSERT INTO sessions (user_id, creation_time, expiration_time, last_activity, session_data) VALUES ($1, $2, $3, $4, $5 ) RETURNING *" )
+        .await.map_err(MyDbError::QueryError)?;
+
+    // let session_data_str = serde_json::to_string( &session_data ).expect( "Failed to serialize session_data" ); 
+    let session_data_str = serde_json::to_string( &session_data ).map_err( MyDbError::SerializeError )?; 
+    let expiration_time = calculate_expiration_time();
+
+    // Execute prepared statment 
+    match client.query_one( &statement, &[&user_id, &expiration_time, &session_data_str ] ).await {
+        Ok( row ) => {
+            // Session is a struct, that represents a single session
+            let session = Session::from_row( &row )?;
+            Ok( session )
+        },
+        Err( e ) => Err( MyDbError::QueryError( e )),
+    }
+
+}
 // pub async fn create_a_sessioon( pool: &Pool ) -> Result<Session, MyDbError> {
     
 //     // let client = pool.get().await?;
@@ -95,6 +120,14 @@ pub async fn get_session_id_for_user(pool: &Pool, user_id: i32) -> Result<i32, M
     } else {
         Err(MyDbError::NotFound)
     }
+}
+
+//////////////////////////////////////////////////////////////////////////////////
+//////////// ********** Helper Functions ********** //////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////
+fn calculate_expiration_time() -> SystemTime{ 
+    // TODO: update the time for expiration
+    SystemTime::now() + std::time::Duration::new( 86_400, 0 ) // 86_400 seconds in a day
 }
 
 //////////////////////////////////////////////////////////////////////////////////
