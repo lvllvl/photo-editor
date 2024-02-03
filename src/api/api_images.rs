@@ -1,18 +1,9 @@
 use crate::db;
-use actix_web::{web, HttpResponse, Error };
-// use actix_web::{web, App, http, HttpResponse, HttpServer, Responder, test};
-// use deadpool_postgres::{Config, Pool};
+use actix_web::{web, HttpResponse };
 use deadpool_postgres::Pool;
-// use actix_multipart::Multipart;
-// use futures::{StreamExt, TryStreamExt};// for file streaming
-// use std::io::Write; // for file writing
-// use serde::Deserialize;
-// use serde_json::json;
-// use tokio_postgres::{Error, NoTls, Row};
 use super::MyDbError;
-// use actix_web::web::Data;
 use rand::Rng;
-// use uuid::Uuid;
+use serde::Serialize;
 
 //////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////
@@ -27,28 +18,17 @@ use rand::Rng;
 /// # Arguements
 ///
 /// * 'pool' - A reference to the database connection pool.
-/// * 'path' - A web::Path tuple containing the username.
-/// * 'image_path' - The file path of the image to be uploaded.
-/// * 'user_id' - The ID of the user making the request.
+/// * 'file_path' - The path to the image file.
+/// * 'file_type' - The type of the image file.
 ///
 /// # Returns
-///
+/// 
 /// Return an HttpResponse indicating the outcome of the operation.
 ///
 /// # Example Request
+/// 
+/// 
 ///
-/// POST /image/{username}/add_image
-/// Body: { "image_path": "/path/to/image.png" }
-// async fn add_image_handler( pool: web::Data<Pool>, file_path: &str, file_type: &str ) -> HttpResponse {
-
-//     let user_id: i32 = 1; // FIXME: Assuming user_id is extracted from authenticated session
-//     match db::images::add_image( &pool, file_path, user_id, file_type ).await {
-
-//         Ok( image_id ) => HttpResponse::Ok().json( image_id ),
-//         Err( MyDbError::NotFound ) => HttpResponse::NotFound().json( "Image was not uploaded." ),
-//         Err( _ ) => HttpResponse::InternalServerError().json( "Internal server error" ),
-//     }
-// }
 async fn add_image_handler( 
     pool: web::Data<Pool>,
     file_path: &str,
@@ -57,16 +37,19 @@ async fn add_image_handler(
 {
     let mut rng = rand::thread_rng();
     let user_id: i32 = rng.gen(); // FIXME: Assuming user_id is extracted from authenticated session
-
     match db::images::add_image( &pool, file_path, user_id, file_type ).await {
-
         Ok( image_id ) => {
-            HttpResponse::Ok().json( format!( "message: Image was uploaded successfully. Image ID: {}", image_id ))
+            let response: ImageUploadResponse = ImageUploadResponse {
+                message: "Image was uploaded successfully".to_string(),
+                image_id,
+                image_url: format!( "http://yourserver.com/path/to/images/{}", file_path ),
+            };
+            HttpResponse::Ok().json( response )
         },
         Err( e ) => {
             println!( "Error adding image: {:?}", e );
             HttpResponse::InternalServerError().json( "Internal server error" )
-        },
+        }
     }
 
 }
@@ -126,4 +109,11 @@ async fn delete_image_handler(pool: web::Data<Pool>, image_id: web::Path<i32>) -
         Err(MyDbError::NotFound) => HttpResponse::NotFound().json("Image NOT found!"),
         Err(_) => HttpResponse::InternalServerError().json("Internal Server Error!"),
     }
+}
+
+#[ derive( Serialize) ]
+struct ImageUploadResponse {
+    message: String,
+    image_id: i32,
+    image_url: String,
 }
