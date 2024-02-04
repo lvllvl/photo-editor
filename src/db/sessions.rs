@@ -1,31 +1,17 @@
 #![allow(dead_code)]
 use super::MyDbError;
-use std::time::{ SystemTime, UNIX_EPOCH };
-// use tokio_postgres::types::Json;
-// use chrono::{DateTime, Duration, Utc};
+use std::time::SystemTime;
 use chrono::{DateTime, Utc};
-// use deadpool_postgres::{Config, Pool};
 use deadpool_postgres::Pool;
-// use postgres::types::ToSql;
 use serde::{Deserialize, Serialize};
-// use serde_json::json;
-// use std::collections::HashMap;
-// use tokio_postgres::{Error, NoTls, Row};
 use tokio_postgres::Row;
-// use std::fmt;
-
-
-// use dotenv::dotenv;
-// use std::env;
+use crate::db::users::User;
+use crate::db::users::get_user_by_id; 
 
 /// Create a single session for a user ////////////////////////////////////////////
 /// 
-/// Triggers when:
-///     - A user logs in 
-///     - A user logs in with a "remember me" option
-///    - A user logs in with a "keep me logged in" option
-///    - A user creates a new account
-
+/// This treats all the users the same, just creates a session for a user
+/// 
 pub async fn create_a_session( pool: &Pool, user_id: i32, session_data: serde_json::Value ) -> Result< Session, MyDbError > {
 
     let client = pool.get().await.map_err(MyDbError::PoolError)?; // .map_err(MyDbError::PoolError)?; // .await?;
@@ -33,7 +19,6 @@ pub async fn create_a_session( pool: &Pool, user_id: i32, session_data: serde_js
         .prepare( "INSERT INTO sessions (user_id, creation_time, expiration_time, last_activity, session_data) VALUES ($1, $2, $3, $4, $5 ) RETURNING *" )
         .await.map_err(MyDbError::QueryError)?;
 
-    // let session_data_str = serde_json::to_string( &session_data ).expect( "Failed to serialize session_data" ); 
     let session_data_str = serde_json::to_string( &session_data ).map_err( MyDbError::SerializeError )?; 
     let expiration_time = calculate_expiration_time();
 
@@ -46,44 +31,28 @@ pub async fn create_a_session( pool: &Pool, user_id: i32, session_data: serde_js
         },
         Err( e ) => Err( MyDbError::QueryError( e )),
     }
-
 }
-// pub async fn create_a_sessioon( pool: &Pool ) -> Result<Session, MyDbError> {
-    
-//     // let client = pool.get().await?;
-//     // let statement = client
-//     //     .prepare("INSERT INTO sessions (user_id, creation_time, expiration_time, last_activity, session_data) VALUES ($1, $2, $3, $4, $5) RETURNING *")
-//     //     .await?;
 
-//     // // let session_data = serde_json::json!({
-//     // //     "user_id": 1,
-//     // //     "username": "user1",
-//     // //     "email": "" 
-//     // // });
-    
-//     // // match client.query(&statement, &[&1, &Utc::now(), &Utc::now(), &Utc::now(), &session_data]).await {
-//     // //     Ok(rows) => {
-//     // //         if let Some(row) = rows.into_iter().next() {
-//     // //             Ok(Session::from_row(&row)?)
-//     // //         } else {
-//     // //             Err(MyDbError::NotFound)
-//     // //         }
-//     // //     }
-//     // //     Err(e) => Err(MyDbError::DbError(e.to_string())),
-    
-// }
-
+// TODO: this should return the user struct, NOT just the user ID, change return type
 /// Get a user_id ( i32 ) by providing the session_id (i32) 
-pub async fn get_user_id_by_session_id( pool: &Pool, session_id: i32 ) -> Result< i32, MyDbError > {
+pub async fn get_user_from_session_id( pool: &Pool, session_id: i32 ) -> Result< User, MyDbError > {
+    
     let client = pool.get().await?;
+
+    // This should return a single row, since session_id is unique
     let statement = client.prepare( "SELECT user_id FROM sessions WHERE id = $1" ).await?;
     let rows = client.query( &statement,  &[ &session_id ] ).await?;
 
-    if let Some( row ) = rows.into_iter().next() {
-        Ok( row.get( "user_id" ))
-    } else {
-        Err( MyDbError::NotFound )
-    }
+    // TODO: Get the user_id ( i32 ), then get the user info from the users table
+    let user_id: i32 = rows.get( "user_id" ).unwrap();
+
+    let user = get_user_by_id( &pool, user_id ).await?;
+    Ok( user )
+    // if let Some( row ) = rows.into_iter().next() {
+    //     Ok( row.get( "user_id" ))
+    // } else {
+    //     Err( MyDbError::NotFound )
+    // }
 }
 
 // get_active_sessions: for all current users ////////////////////////////////////

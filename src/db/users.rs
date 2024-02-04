@@ -60,6 +60,23 @@ pub async fn get_user_by_email(pool: &Pool, email: &str) -> Result<User, MyDbErr
     }
 }
 
+// Get user by user ID from the database /////////////////////////////////////////
+// TODO: add this to the API and TEST It! 
+pub async fn get_user_by_id(pool: &Pool, user_id: i32) -> Result<User, MyDbError> {
+
+    let client = pool.get().await?;
+    let statement = client
+        .prepare("SELECT * FROM users WHERE id = $1")
+        .await?;
+    let rows = client.query(&statement, &[&user_id]).await?;
+
+    if let Some(row) = rows.into_iter().next() {
+        Ok(User::from_row(&row))
+    } else {
+        Err(MyDbError::NotFound)
+    }
+}
+
 // Get all users from the database ///////////////////////////////////////////////
 pub async fn get_all_users(pool: &Pool) -> Result<Vec<User>, MyDbError> {
 

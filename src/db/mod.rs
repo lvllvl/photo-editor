@@ -156,24 +156,24 @@ pub async fn setup_database(client: &mut deadpool_postgres::Client) -> Result<()
 //////////////////////////////////////////////////////////////////////////////////
 #[derive(Debug)]
 pub enum MyDbError {
-    PostgresError(postgres::Error),
+    PostgresError( postgres::Error ),
     PoolError( deadpool::managed::PoolError<postgres::Error> ),
     // PoolError( tokio_postgres::Error ),
     QueryError( tokio_postgres::Error ),
     SerializeError( serde_json::error::Error ),
     NotFound,
-    JsonError(String),
+    JsonError( String ),
 }
 
 impl From<serde_json::Error> for MyDbError {
     fn from(err: serde_json::Error) -> MyDbError {
-        MyDbError::JsonError(err.to_string())
+        MyDbError::JsonError( err.to_string() )
     }
 }
 
 impl From<postgres::Error> for MyDbError {
-    fn from(err: postgres::Error) -> MyDbError {
-        MyDbError::PostgresError(err)
+    fn from( err: postgres::Error ) -> MyDbError {
+        MyDbError::PostgresError( err )
     }
 }
 
