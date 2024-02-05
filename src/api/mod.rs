@@ -32,6 +32,7 @@ pub async fn start_server(pool: Pool) -> Result<(), MyError>
         App::new().app_data(web::Data::new(pool.clone()))
                   .route("/", web::get().to(index))
                   .route("/add_user", web::post().to(api_users::add_user_handler))
+                  .route( "/get_user_by_id/{id}", web::get().to( api_users::get_user_by_user_id_handler )) // TODO: remove this in PROD
                   .route("get_user_by_username/{username}", web::get().to(api_users::get_user_handler))
                   .route( "/get_user_by_email/{email}", web::get().to(api_users::get_user_by_email_handler))
                   .route("/users", web::get().to(api_users::get_all_users_handler)) // TODO: remove this in PROD

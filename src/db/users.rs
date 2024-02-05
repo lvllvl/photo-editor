@@ -61,7 +61,6 @@ pub async fn get_user_by_email(pool: &Pool, email: &str) -> Result<User, MyDbErr
 }
 
 // Get user by user ID from the database /////////////////////////////////////////
-// TODO: add this to the API and TEST It! 
 pub async fn get_user_by_id(pool: &Pool, user_id: i32) -> Result<User, MyDbError> {
 
     let client = pool.get().await?;
@@ -93,11 +92,6 @@ pub async fn get_all_users(pool: &Pool) -> Result<Vec<User>, MyDbError> {
     Ok(users)
 }
 
-
-// TODO: Retrieve users based on various filters e.g., age, location, etc. ///////
-// TODO: Retrieve recent users, from a certain timeframe /////////////////////////
-
-
 //////////////////////////////////////////////////////////////////////////////////
 // User Update Functions /////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////
@@ -123,12 +117,12 @@ pub async fn update_user_email(
 }
 
 // TODO: Update user profile, profile details, names, contact info, etc. /////////
-// TODO: Deactivate user account, or activate ////////////////////////////////////
 
 //////////////////////////////////////////////////////////////////////////////////
 //////////// ********** User Deletion Fuctions ********** ////////////////////////
 //////////////////////////////////////////////////////////////////////////////////
 
+// This is a way to Deactivate user account, or activate /////////////////////////
 // Delete a user from the database ///////////////////////////////////////////////
 pub async fn delete_user(pool: &Pool, username: &str) -> Result<(), MyDbError> {
     let client = pool.get().await?;

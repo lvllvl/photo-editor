@@ -25,7 +25,7 @@ pub async fn create_a_session( pool: &Pool, user_id: i32, session_data: serde_js
             let session_data_str = serde_json::to_string( &session_data ).map_err( MyDbError::SerializeError )?; 
             let expiration_time = calculate_expiration_time();
 
-            // Execute prepared statment 
+            // Execute prepared statment - insert a new session
             match client.query_one( &statement, &[&user_id, &expiration_time, &session_data_str ] ).await {
                 Ok( row ) => {
                     // Session is a struct, that represents a single session
@@ -41,8 +41,9 @@ pub async fn create_a_session( pool: &Pool, user_id: i32, session_data: serde_js
 
 }
 
-/// Get user info from a session_id, returns a user struct
-pub async fn get_user_from_session_id( pool: &Pool, session_id: i32 ) -> Result< User, MyDbError > {
+/// Get user info from a session_id, returns a user struct ////////////////////////
+pub async fn get_user_from_session_id( pool: &Pool, session_id: i32 ) -> Result< User, MyDbError > 
+{
     
     let client = pool.get().await?;
 
@@ -64,7 +65,9 @@ pub async fn get_user_from_session_id( pool: &Pool, session_id: i32 ) -> Result<
 }
 
 // get_active_sessions: for all current users ////////////////////////////////////
-pub async fn get_active_sessions(pool: &Pool) -> Result<Vec<Session>, MyDbError> {
+pub async fn get_active_sessions(pool: &Pool) -> Result< Vec<Session>, MyDbError > 
+{
+
     let client = pool.get().await?;
     let statement = client
         .prepare("SELECT * FROM sessions WHERE end_time IS NULL")
@@ -117,7 +120,8 @@ pub struct Session {
     pub creation_time: DateTime<Utc>,
     pub expiration_time: DateTime<Utc>,
     pub last_activity: DateTime<Utc>,
-    pub session_data: serde_json::Value,
+    pub session_data: serde_json::Value, // What should you store in a session?
+    // TODO: track how many images were uploaded in the session
 }
 
 impl Session {

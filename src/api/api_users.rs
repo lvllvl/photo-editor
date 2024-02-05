@@ -142,6 +142,21 @@ pub async fn get_user_by_email_handler(pool: web::Data<Pool>, email: web::Path<(
     }
 }
 
+/// Get user by user ID
+pub async fn get_user_by_user_id_handler( pool: web::Data<Pool>, user_id: web::Path< i32 > ) -> HttpResponse
+{
+    let user_id = user_id.into_inner();
+
+    // Call the get_user_by_id function from db::users
+    match db::users::get_user_by_id( &pool, user_id ).await {
+
+        Ok(user) => HttpResponse::Ok().json(user),
+        Err(MyDbError::NotFound) => HttpResponse::NotFound().json("User not found"),
+        Err(_) => HttpResponse::InternalServerError().json("Internal server error"),
+
+    }
+}
+
 /// Delete user by username //////////////////////////////////////
 /// This is for user account deletion.
 /// 
