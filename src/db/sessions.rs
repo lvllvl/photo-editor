@@ -12,29 +12,36 @@ use crate::db::users::get_user_by_id;
 /// 
 /// This treats all the users the same, just creates a session for a user
 /// 
-pub async fn create_a_session( pool: &Pool, user_id: i32, session_data: serde_json::Value ) -> Result< Session, MyDbError > {
+pub async fn create_a_session( pool: &Pool, user_id: i32, session_data: serde_json::Value ) -> Result< Session, MyDbError > 
+{
+    // Check if user_id exists in the users table
+    match get_user_by_id( pool, user_id ).await {
+        Ok( _user ) => {
+            let client = pool.get().await.map_err(MyDbError::PoolError)?; // .map_err(MyDbError::PoolError)?; // .await?;
+            let statement = client
+                .prepare( "INSERT INTO sessions (user_id, creation_time, expiration_time, last_activity, session_data) VALUES ($1, $2, $3, $4, $5 ) RETURNING *" )
+                .await.map_err(MyDbError::QueryError)?;
 
-    let client = pool.get().await.map_err(MyDbError::PoolError)?; // .map_err(MyDbError::PoolError)?; // .await?;
-    let statement = client
-        .prepare( "INSERT INTO sessions (user_id, creation_time, expiration_time, last_activity, session_data) VALUES ($1, $2, $3, $4, $5 ) RETURNING *" )
-        .await.map_err(MyDbError::QueryError)?;
+            let session_data_str = serde_json::to_string( &session_data ).map_err( MyDbError::SerializeError )?; 
+            let expiration_time = calculate_expiration_time();
 
-    let session_data_str = serde_json::to_string( &session_data ).map_err( MyDbError::SerializeError )?; 
-    let expiration_time = calculate_expiration_time();
-
-    // Execute prepared statment 
-    match client.query_one( &statement, &[&user_id, &expiration_time, &session_data_str ] ).await {
-        Ok( row ) => {
-            // Session is a struct, that represents a single session
-            let session = Session::from_row( &row )?;
-            Ok( session )
+            // Execute prepared statment 
+            match client.query_one( &statement, &[&user_id, &expiration_time, &session_data_str ] ).await {
+                Ok( row ) => {
+                    // Session is a struct, that represents a single session
+                    let session = Session::from_row( &row )?;
+                    Ok( session )
+                },
+                Err( e ) => Err( MyDbError::QueryError( e )),
+            }
         },
-        Err( e ) => Err( MyDbError::QueryError( e )),
+        Err( MyDbError::NotFound ) => Err( MyDbError::NotFound ),
+        Err( e ) => Err( e )
     }
+
 }
 
-// TODO: this should return the user struct, NOT just the user ID, change return type
-/// Get a user_id ( i32 ) by providing the session_id (i32) 
+/// Get user info from a session_id, returns a user struct
 pub async fn get_user_from_session_id( pool: &Pool, session_id: i32 ) -> Result< User, MyDbError > {
     
     let client = pool.get().await?;
@@ -44,15 +51,16 @@ pub async fn get_user_from_session_id( pool: &Pool, session_id: i32 ) -> Result<
     let rows = client.query( &statement,  &[ &session_id ] ).await?;
 
     // TODO: Get the user_id ( i32 ), then get the user info from the users table
-    let user_id: i32 = rows.get( "user_id" ).unwrap();
+    if let Some( row ) = rows.into_iter().next() {
+        // Extract the user_id from the row
+        let user_id: i32 = row.get::<&str, i32>( "user_id" );
 
-    let user = get_user_by_id( &pool, user_id ).await?;
-    Ok( user )
-    // if let Some( row ) = rows.into_iter().next() {
-    //     Ok( row.get( "user_id" ))
-    // } else {
-    //     Err( MyDbError::NotFound )
-    // }
+        // Get user info from users table with user_id
+        let user = get_user_by_id( pool, user_id ).await?;
+        Ok( user )
+    } else {
+        Err( MyDbError::NotFound )
+    }
 }
 
 // get_active_sessions: for all current users ////////////////////////////////////
