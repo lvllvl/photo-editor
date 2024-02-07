@@ -1,14 +1,47 @@
 <template>
-  <div>
+  <div class="homepage">
     <!-- Homepage specific content goes here -->
     <h1>Welcome to Our Photoshop Clone App</h1>
+    <div class="feature">
+        <input type="file" @change="uploadImage" />
+        <button @click="submitImage" class="button">Upload Image</button>
+    </div>
     <!-- More content like introduction, features, etc. -->
   </div>
 </template>
 
 <script>
 export default {
-  // You can add your JavaScript here for page-specific functionality
+  data() {
+    return {
+      selectedImage: null,
+    };
+  },
+  methods: {
+    uploadImage(event) {
+      this.selectedImage = event.target.files[0];
+    },
+    async submitImage() {
+      if (!this.selectedImage) {
+        alert("Please select an image to upload.");
+        return;
+      }
+      const formData = new FormData();
+      formData.append("image", this.selectedImage);
+
+      try {
+        await this.$axios.$post('/api/image/upload', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+        alert("Image uploaded successfully!");
+      } catch (error) {
+        console.error("Error uploading image:", error);
+        alert("Failed to upload image.");
+      }
+    },
+  },
 }
 </script>
 
