@@ -19,7 +19,7 @@ export default {
   },
   methods: {
     uploadImage(event) {
-      this.selectedImage = event.target.files[0];
+      this.selectedImage = event.target.files[ 0 ];
     },
     async submitImage() {
       if (!this.selectedImage) {
