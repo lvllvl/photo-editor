@@ -1,16 +1,20 @@
 <template>
   <div class="homepage">
-    <!-- Homepage specific content goes here -->
-    <h1>Welcome to Our Photoshop Clone App</h1>
-    <div class="feature">
-        <input type="file" @change="uploadImage" />
-        <button @click="submitImage" class="button">Upload Image</button>
+    <div class="dropdown">
+      <button class="dropbtn">File</button>
+      <div class="dropdown-content">
+        <a href="#" @click="triggerFileInput">Upload Image</a>
+        <!-- Placeholder for more dropdown options -->
+      </div>
     </div>
+    <h1>Welcome to Our Photoshop Clone App</h1>
+    <!-- Hidden file input for triggering upload -->
+    <input type="file" @change="uploadImage" ref="fileInput" style="display: none;" />
     <!-- More content like introduction, features, etc. -->
   </div>
 </template>
 
-<script>
+<!-- <script>
 export default {
   data() {
     return {
@@ -20,6 +24,44 @@ export default {
   methods: {
     uploadImage(event) {
       this.selectedImage = event.target.files[ 0 ];
+    },
+    async submitImage() {
+      if (!this.selectedImage) {
+        alert("Please select an image to upload.");
+        return;
+      }
+      const formData = new FormData();
+      formData.append("image", this.selectedImage);
+
+      try {
+        await this.$axios.$post('/api/image/upload', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+        alert("Image uploaded successfully!");
+      } catch (error) {
+        console.error("Error uploading image:", error);
+        alert("Failed to upload image.");
+      }
+    },
+  },
+}
+</script> -->
+<script>
+export default {
+  data() {
+    return {
+      selectedImage: null,
+    };
+  },
+  methods: {
+    triggerFileInput() {
+      this.$refs.fileInput.click();
+    },
+    uploadImage(event) {
+      this.selectedImage = event.target.files[0];
+      this.submitImage(); // Auto-submit after selection
     },
     async submitImage() {
       if (!this.selectedImage) {
@@ -91,5 +133,51 @@ h1 {
         padding: 10px;
     }
 }
+
+/* Dropdown button styling */
+/* Dropdown Button */
+.dropbtn {
+  background-color: #007bff;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  cursor: pointer;
+  border-radius: 5px;
+}
+
+/* The container <div> - needed to position the dropdown content */
+.dropdown {
+  position: relative;
+  display: inline-block;
+  top: 0;
+  left: 0;
+}
+
+/* Dropdown Content (Hidden by default) */
+.dropdown-content {
+  display: none;
+  position: absolute;
+  background-color: #f9f9f9;
+  min-width: 160px;
+  box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+  z-index: 1;
+}
+
+/* Links inside the dropdown */
+.dropdown-content a {
+  color: black;
+  padding: 12px 16px;
+  text-decoration: none;
+  display: block;
+}
+
+/* Change color of dropdown links on hover */
+.dropdown-content a:hover {background-color: #f1f1f1}
+
+/* Show the dropdown menu on hover */
+.dropdown:hover .dropdown-content {display: block;}
+
+/* Change the background color of the dropdown button when the dropdown content is shown */
+.dropdown:hover .dropbtn {background-color: #0056b3;}
 </style>
 
