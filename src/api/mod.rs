@@ -31,14 +31,15 @@ pub async fn start_server(pool: Pool) -> Result<(), MyError>
     HttpServer::new(move || {
         App::new().app_data(web::Data::new(pool.clone()))
                   .route("/", web::get().to(index))
-                  .route("/add_user", web::post().to(api_users::add_user_handler))
-                  .route( "/get_user_by_id/{id}", web::get().to( api_users::get_user_by_user_id_handler )) // TODO: remove this in PROD
-                  .route("get_user_by_username/{username}", web::get().to(api_users::get_user_handler))
-                  .route( "/get_user_by_email/{email}", web::get().to(api_users::get_user_by_email_handler))
-                  .route("/users", web::get().to(api_users::get_all_users_handler)) // TODO: remove this in PROD
+                  .route("/user/add_user", web::post().to(api_users::add_user_handler))
+                  .route( "/user/get_user_by_id/{id}", web::get().to( api_users::get_user_by_user_id_handler )) // TODO: remove this in PROD
+                  .route("/user/get_user_by_username/{username}", web::get().to(api_users::get_user_handler))
+                  .route( "/user/get_user_by_email/{email}", web::get().to(api_users::get_user_by_email_handler))
+                  .route("/user/all_users", web::get().to(api_users::get_all_users_handler)) // TODO: remove this in PROD
                   .route("/user/{username}/update_email", web::put().to( api_users::update_user_email_handler ))
-                  .route( "/delete_user/{username}", web::delete().to( api_users::delete_user_handler )) 
-                  .route("/delete_all_users", web::delete().to(api_users::delete_all_users_handler)) // TODO: remove this in PROD
+                  .route( "/user/delete_user/{username}", web::delete().to( api_users::delete_user_handler )) 
+                  .route("/user/delete_all_users", web::delete().to(api_users::delete_all_users_handler)) // TODO: remove this in PROD
+                  .route( "/image/add_image", web::post().to(api_images::add_image_handler))
                 
                 // Other routes
     // TODO: Does this number/address need to change in PROD?

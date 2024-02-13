@@ -1,9 +1,13 @@
 use crate::db;
-use actix_web::{web, HttpResponse };
+use actix_web::{web, HttpResponse, Error };
+use actix_multipart::Multipart;
 use deadpool_postgres::Pool;
+use futures::{StreamExt, TryStreamExt};
+use std::io::Write;
+use serde::Serialize;
+// use deadpool_postgres::Pool;
 use super::MyDbError;
 use rand::Rng;
-use serde::Serialize;
 
 //////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////
@@ -29,30 +33,77 @@ use serde::Serialize;
 /// 
 /// 
 ///
-async fn add_image_handler( 
+#[derive(Serialize)]
+struct ImageUploadResponse {
+    message: String,
+    image_id: i32,
+    image_url: String,
+}
+
+pub async fn add_image_handler(
     pool: web::Data<Pool>,
-    file_path: &str,
-    file_type: &str,
-) -> HttpResponse
-{
+    mut payload: Multipart,
+) -> HttpResponse {
+
     let mut rng = rand::thread_rng();
-    let user_id: i32 = rng.gen(); // FIXME: Assuming user_id is extracted from authenticated session
-    match db::images::add_image( &pool, file_path, user_id, file_type ).await {
+    let user_id: i32 = rng.gen(); // FIXME: This should be the user's ID, extracted from the session
+
+    // Init variables to hold file details
+    let mut saved_file_path = String::new();
+    let mut file_type = String::new();
+
+    // Process the multipart payload
+    while let Ok( Some( mut field ) ) = payload.try_next().await{
+
+        if let Some( content_disposition ) = field.content_disposition() {
+            let filename = content_disposition.get_filename().unwrap_or( "unnamed" );
+            let filepath = format!( "./uploads/{}", sanitize_filename( filename ));
+            saved_file_path = filepath.clone(); // Store file for DB entry
+            file_type = content_disposition.get_param( "Content-Type" ).map( |c| c.as_str()).unwrap_or( "unknown" ).to_string();
+
+            let mut file = match web::block( || std::fs::File::create( &filepath )).await {
+                Ok( file ) => file,
+                Err( e ) => return HttpResponse::InternalServerError().finish(),
+            };
+
+            while let Some( chunk ) = field.next().await {
+                let data = chunk.map_err( |_| HttpResponse::InternalServerError())?;
+                web::block( move || file.write_all( &data ).map( |_| ())).await.map_err(|_| HttpResponse::InternalServerError())?;
+            }
+        }
+
+    }
+    // Save the image to the database
+    match db::images::add_image(&pool, &saved_file_path, user_id, &file_type ).await {
+
         Ok( image_id ) => {
-            let response: ImageUploadResponse = ImageUploadResponse {
-                message: "Image was uploaded successfully".to_string(),
+            let response = ImageUploadResponse {
+                message: "Image has been uploaded successfully.".to_string(),
                 image_id,
-                image_url: format!( "http://yourserver.com/path/to/images/{}", file_path ),
+                image_url: format!( "http://yourserver.com/path/to/images/{}", saved_file_path ),
             };
             HttpResponse::Ok().json( response )
-        },
-        Err( e ) => {
-            println!( "Error adding image: {:?}", e );
-            HttpResponse::InternalServerError().json( "Internal server error" )
+            },
+            Err( e ) => {
+                println!( "Error adding image: {:?}", e ); 
+                HttpResponse::InternalServerError().json( "Internal server error")
+            }
         }
-    }
-
 }
+
+// Sanitize filename
+fn sanitize_filename(filename: &str) -> String {
+    let invalid_chars = ['/', '\\', '?', '%', '*', ':', '|', '"', '<', '>', '.'];
+    let sanitized: String = filename.chars().filter(|c| !invalid_chars.contains(c)).collect();
+    
+    // Prevent empty filenames or use a default name
+    if sanitized.trim().is_empty() {
+        "unnamed".to_string()
+    } else {
+        sanitized
+    }
+}
+
 
 // TODO: Get_image
 // QUEST: should this return a vector instead of HttpResonse?
@@ -109,11 +160,4 @@ async fn delete_image_handler(pool: web::Data<Pool>, image_id: web::Path<i32>) -
         Err(MyDbError::NotFound) => HttpResponse::NotFound().json("Image NOT found!"),
         Err(_) => HttpResponse::InternalServerError().json("Internal Server Error!"),
     }
-}
-
-#[ derive( Serialize) ]
-struct ImageUploadResponse {
-    message: String,
-    image_id: i32,
-    image_url: String,
 }

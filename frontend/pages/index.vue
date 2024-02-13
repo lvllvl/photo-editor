@@ -14,40 +14,6 @@
   </div>
 </template>
 
-<!-- <script>
-export default {
-  data() {
-    return {
-      selectedImage: null,
-    };
-  },
-  methods: {
-    uploadImage(event) {
-      this.selectedImage = event.target.files[ 0 ];
-    },
-    async submitImage() {
-      if (!this.selectedImage) {
-        alert("Please select an image to upload.");
-        return;
-      }
-      const formData = new FormData();
-      formData.append("image", this.selectedImage);
-
-      try {
-        await this.$axios.$post('/api/image/upload', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
-        alert("Image uploaded successfully!");
-      } catch (error) {
-        console.error("Error uploading image:", error);
-        alert("Failed to upload image.");
-      }
-    },
-  },
-}
-</script> -->
 <script>
 export default {
   data() {
@@ -59,9 +25,32 @@ export default {
     triggerFileInput() {
       this.$refs.fileInput.click();
     },
-    uploadImage(event) {
+    async uploadImage(event) {
       this.selectedImage = event.target.files[0];
-      this.submitImage(); // Auto-submit after selection
+      
+      // If no file was selected
+      if (!this.selectedImage ) {
+        alert( "Please select an image to upload." );
+        return;
+      }
+      const formData = new FormData();
+      // The key 'image' should match the expected key in the API endpoint
+      formData.append( "image", this.selectedImage );
+
+      try {
+        const response = await this.$axios.$post('http://127.0.0.1:8080/image/upload', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+        // Handle response
+        console.log( response );
+        alert( "Image uploaded successfully!" );
+
+      } catch (error) {
+        console.error( "Error uploading image: ", error );
+        alert( "Failed to upload image." ); 
+      }
     },
     async submitImage() {
       if (!this.selectedImage) {
