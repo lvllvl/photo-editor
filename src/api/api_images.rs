@@ -5,7 +5,6 @@ use deadpool_postgres::Pool;
 use futures::{StreamExt, TryStreamExt};
 use std::io::Write;
 use serde::Serialize;
-use deadpool_postgres::Pool;
 use super::MyDbError;
 use rand::Rng;
 use actix_web::http::header::ContentDisposition;
@@ -58,8 +57,8 @@ pub async fn add_image_handler(
 
         if let Some( content_disposition ) = field.content_disposition() {
             
-            let filename = content_disposition.get_filename().unwrap_or( "unnamed" );
-            let filepath = format!( "./uploads/{}", sanitize_filename( filename ));
+            let filename = content_disposition.get_filename().unwrap_or( "unnamed" ).to_string();
+            let filepath = format!( "./uploads/{}", sanitize_filename( &filename ));
             saved_file_path = filepath.clone(); // Store file for DB entry
             file_type = content_disposition.get_param( "Content-Type" ).map( |c| c.as_str()).unwrap_or( "unknown" ).to_string();
 
@@ -82,6 +81,8 @@ pub async fn add_image_handler(
             //     let data = chunk.map_err( |_| HttpResponse::InternalServerError())?;
             //     web::block( move || file.write_all( &data ).map( |_| ())).await.map_err(|_| HttpResponse::InternalServerError())?;
             // }
+        } else {
+            eprintln!( "No content disposition found in the field"); 
         }
 
     }
@@ -105,6 +106,7 @@ pub async fn add_image_handler(
 
 // Sanitize filename
 fn sanitize_filename(filename: &str) -> String {
+
     let invalid_chars = ['/', '\\', '?', '%', '*', ':', '|', '"', '<', '>', '.'];
     let sanitized: String = filename.chars().filter(|c| !invalid_chars.contains(c)).collect();
     
