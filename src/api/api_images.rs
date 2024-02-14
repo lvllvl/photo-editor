@@ -5,9 +5,10 @@ use deadpool_postgres::Pool;
 use futures::{StreamExt, TryStreamExt};
 use std::io::Write;
 use serde::Serialize;
-// use deadpool_postgres::Pool;
+use deadpool_postgres::Pool;
 use super::MyDbError;
 use rand::Rng;
+use actix_web::http::header::ContentDisposition;
 
 //////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////
@@ -56,6 +57,7 @@ pub async fn add_image_handler(
     while let Ok( Some( mut field ) ) = payload.try_next().await{
 
         if let Some( content_disposition ) = field.content_disposition() {
+            
             let filename = content_disposition.get_filename().unwrap_or( "unnamed" );
             let filepath = format!( "./uploads/{}", sanitize_filename( filename ));
             saved_file_path = filepath.clone(); // Store file for DB entry
@@ -66,10 +68,20 @@ pub async fn add_image_handler(
                 Err( e ) => return HttpResponse::InternalServerError().finish(),
             };
 
-            while let Some( chunk ) = field.next().await {
-                let data = chunk.map_err( |_| HttpResponse::InternalServerError())?;
-                web::block( move || file.write_all( &data ).map( |_| ())).await.map_err(|_| HttpResponse::InternalServerError())?;
+            while let Some(chunk) = field.next().await {
+                let data = match chunk {
+                    Ok( data ) => data,
+                    Err(_) => return HttpResponse::InternalServerError().finish(),
+                };
+
+                if let Err(_) = web::block( move || file.write_all( &data )).await {
+                    return HttpResponse::InternalServerError().finish();
+                }
             }
+            // while let Some( chunk ) = field.next().await {
+            //     let data = chunk.map_err( |_| HttpResponse::InternalServerError())?;
+            //     web::block( move || file.write_all( &data ).map( |_| ())).await.map_err(|_| HttpResponse::InternalServerError())?;
+            // }
         }
 
     }
