@@ -1,5 +1,13 @@
 use crate::db;
-use actix_web::{web, HttpResponse, Error };
+use actix_web::{ App,
+                 HttpResponse,
+                 HttpRequest,
+                 Error,
+                 web,
+                 post,
+                 get,
+                 http::header::CONTENT_LENGTH
+                    }; 
 use actix_multipart::Multipart;
 use deadpool_postgres::Pool;
 use futures::{StreamExt, TryStreamExt};
@@ -40,10 +48,21 @@ struct ImageUploadResponse {
     image_url: String,
 }
 
+#[post("/image/add_image")]
 pub async fn add_image_handler(
     pool: web::Data<Pool>,
     mut payload: Multipart,
+    req: HttpRequest,
 ) -> HttpResponse {
+
+    let content_length: usize = match req.headers().get( CONTENT_LENGTH ){
+        Some( hv) => hv.to_str()unwrap_or("0" ).parse().unwrap(); 
+        None => 0, 
+    }; 
+
+    if content_length == 0 || content_length > max_file_size { return HttpResponse::BadRequest().into(); } 
+    
+    
 
     let mut rng = rand::thread_rng();
     let user_id: i32 = rng.gen(); // FIXME: This should be the user's ID, extracted from the session
